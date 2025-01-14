@@ -1,4 +1,4 @@
-"use client"; // ✅ Ensures this file runs on the client
+"use client";
 
 import { useState } from "react";
 
@@ -7,6 +7,7 @@ export default function StockDataPage() {
   const [date, setDate] = useState("");
   const [stockData, setStockData] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const fetchStockData = async () => {
     if (!symbol || !date) {
@@ -14,8 +15,9 @@ export default function StockDataPage() {
       return;
     }
 
-    setError(""); // Reset previous errors
-    setStockData(null); // Clear previous results
+    setError("");
+    setStockData(null);
+    setLoading(true);
 
     try {
       const response = await fetch(`/api/stock?symbol=${symbol}&date=${date}`);
@@ -28,6 +30,8 @@ export default function StockDataPage() {
       }
     } catch (err) {
       setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,31 +64,22 @@ export default function StockDataPage() {
         </button>
       </div>
 
+      {/* Loading Spinner */}
+      {loading && <p className="text-blue-600 mt-4">Fetching data...</p>}
+
       {/* Error Message */}
       {error && <p className="text-red-500 mt-4">{error}</p>}
 
       {/* Stock Data Display */}
       {stockData && (
-        <div className="mt-6 p-4 border rounded-md shadow-md bg-white w-96">
+        <div className="mt-6 p-6 border rounded-md shadow-md bg-white w-96">
           <h2 className="text-xl font-semibold">Stock Data for {symbol}</h2>
-          <p>
-            <strong>Date:</strong> {new Date(stockData.date).toLocaleDateString()}
-          </p>
-          <p>
-            <strong>Open:</strong> {stockData.open}
-          </p>
-          <p>
-            <strong>High:</strong> {stockData.high}
-          </p>
-          <p>
-            <strong>Low:</strong> {stockData.low}
-          </p>
-          <p>
-            <strong>Close:</strong> {stockData.close}
-          </p>
-          <p>
-            <strong>Volume:</strong> {stockData.volume.toLocaleString()}
-          </p>
+          <p><strong>Date:</strong> {new Date(stockData.date).toLocaleDateString()}</p>
+          <p><strong>Open:</strong> {stockData.open.toFixed(2)}</p>
+          <p><strong>High:</strong> {stockData.high.toFixed(2)}</p>
+          <p><strong>Low:</strong> {stockData.low.toFixed(2)}</p>
+          <p><strong>Close:</strong> {stockData.close.toFixed(2)}</p>
+          <p><strong>Volume:</strong> {stockData.volume.toLocaleString()}</p>
         </div>
       )}
     </main>
