@@ -4,33 +4,42 @@ import yahooFinance from "yahoo-finance2";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
+  const date = searchParams.get("date");
 
-  if (!symbol) {
-    return NextResponse.json({ error: "Symbol is required" }, { status: 400 });
+  if (!symbol || !date) {
+    return NextResponse.json({ error: "Symbol and date are required" }, { status: 400 });
   }
 
+  let period1 = new Date(date);
+  let period2 = new Date(period1);
+  period2.setDate(period2.getDate() + 1); // Ensure range is valid
+
   try {
-    const today = new Date();
-    today.setDate(today.getDate() - 1); // Get yesterday's date
-    const period1 = today.toISOString().split("T")[0];
-
-    const nextDay = new Date(today);
-    nextDay.setDate(today.getDate() + 1); // Make sure period2 is one day after period1
-    const period2 = nextDay.toISOString().split("T")[0];
-
-    console.log(`Fetching data for ${symbol} from ${period1} to ${period2}`);
-
-    const result = await yahooFinance.historical(symbol, {
-      period1,
-      period2,
+    let result = await yahooFinance.historical(symbol, {
+      period1: period1.toISOString().split("T")[0],
+      period2: period2.toISOString().split("T")[0],
       interval: "1d",
     });
 
-    if (!result || result.length === 0) {
-      return NextResponse.json({ error: "No data found" }, { status: 404 });
+    // If no data is found, search for the closest previous date
+    let attempts = 0;
+    while (result.length === 0 && attempts < 7) {
+      period1.setDate(period1.getDate() - 1);
+      period2.setDate(period2.getDate() - 1);
+      attempts++;
+
+      result = await yahooFinance.historical(symbol, {
+        period1: period1.toISOString().split("T")[0],
+        period2: period2.toISOString().split("T")[0],
+        interval: "1d",
+      });
     }
 
-    return NextResponse.json(result[0]); // Return the first entry
+    if (!result.length) {
+      return NextResponse.json({ error: "No data found within the last 7 days" }, { status: 404 });
+    }
+
+    return NextResponse.json(result[0]);
   } catch (error) {
     console.error("Yahoo Finance API Error:", error);
     return NextResponse.json({ error: "Failed to fetch stock data" }, { status: 500 });

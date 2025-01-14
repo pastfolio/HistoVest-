@@ -1,26 +1,32 @@
-"use client"; 
+"use client";
 import { useState } from "react";
 
-export default function StockDataPage() {
+export default function StockData() {
   const [symbol, setSymbol] = useState("AAPL");
-  const [data, setData] = useState(null);
+  const [date, setDate] = useState("");
+  const [stockData, setStockData] = useState(null);
   const [error, setError] = useState("");
 
   const fetchStockData = async () => {
-    setError("");
-    setData(null);
+    setError(""); // Reset errors
+    setStockData(null); // Clear previous data
+
+    if (!symbol || !date) {
+      setError("Please enter a stock symbol and select a date.");
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/stock?symbol=${symbol}`);
-      const result = await response.json();
+      const response = await fetch(`/api/stock?symbol=${symbol}&date=${date}`);
+      const data = await response.json();
 
-      if (response.ok) {
-        setData(result);
-      } else {
-        setError(result.error);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch stock data");
       }
-    } catch (err) {
-      setError("Failed to fetch stock data");
+
+      setStockData(data);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -32,38 +38,31 @@ export default function StockDataPage() {
           type="text"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-          placeholder="Enter stock symbol (e.g., AAPL)"
-          style={{
-            padding: "8px",
-            fontSize: "16px",
-            marginRight: "10px",
-          }}
+          placeholder="Enter stock symbol"
+          style={{ padding: "8px", marginRight: "10px" }}
         />
-        <button
-          onClick={fetchStockData}
-          style={{
-            padding: "8px 12px",
-            fontSize: "16px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ padding: "8px", marginRight: "10px" }}
+        />
+        <button onClick={fetchStockData} style={{ padding: "8px", backgroundColor: "blue", color: "white" }}>
           Search
         </button>
       </div>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {data && (
-        <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
-          <h2>{symbol} Stock Data</h2>
-          <p><strong>Open:</strong> {data.open}</p>
-          <p><strong>Close:</strong> {data.close}</p>
-          <p><strong>High:</strong> {data.high}</p>
-          <p><strong>Low:</strong> {data.low}</p>
-          <p><strong>Volume:</strong> {data.volume}</p>
+      {stockData && (
+        <div style={{ marginTop: "20px", border: "1px solid #ccc", padding: "10px" }}>
+          <h2>Stock Data for {symbol}</h2>
+          <p><strong>Date:</strong> {new Date(stockData.date).toLocaleDateString()}</p>
+          <p><strong>Open:</strong> {stockData.open.toFixed(2)}</p>
+          <p><strong>High:</strong> {stockData.high.toFixed(2)}</p>
+          <p><strong>Low:</strong> {stockData.low.toFixed(2)}</p>
+          <p><strong>Close:</strong> {stockData.close.toFixed(2)}</p>
+          <p><strong>Volume:</strong> {stockData.volume.toLocaleString()}</p>
         </div>
       )}
     </div>
