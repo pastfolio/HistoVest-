@@ -9,27 +9,26 @@ const StockChart = dynamic(() => import("./StockChart"), { ssr: false });
 export default function StockDataPage() {
   const [symbol, setSymbol] = useState("AAPL");
   const [date, setDate] = useState("2022-12-12");
-  const [data, setData] = useState(null);
+  const [range, setRange] = useState(30); // Default to 30 days
+  const [data, setData] = useState({ daily: null, historical: [] });
   const [error, setError] = useState("");
 
   const fetchStockData = async () => {
     setError("");
-    setData(null);
+    setData({ daily: null, historical: [] });
 
     try {
-      const response = await fetch(`/api/stock?symbol=${symbol}&date=${date}`);
+      const response = await fetch(
+        `/api/stock?symbol=${symbol}&date=${date}&range=${range}`
+      );
       const result = await response.json();
 
       console.log("API Response:", result);
 
       if (response.ok) {
-        if (result && result.close) {
-          setData(result);
-        } else {
-          console.error("Incomplete API data:", result);
-          setError("Incomplete data received from the API.");
-        }
+        setData(result);
       } else {
+        console.error("API Error:", result.error);
         setError(result.error || "Failed to fetch stock data");
       }
     } catch (err) {
@@ -59,6 +58,13 @@ export default function StockDataPage() {
           onChange={(e) => setDate(e.target.value)}
           style={{ padding: "8px", fontSize: "16px", marginRight: "10px" }}
         />
+        <input
+          type="number"
+          value={range}
+          onChange={(e) => setRange(parseInt(e.target.value))}
+          placeholder="Range in days"
+          style={{ padding: "8px", fontSize: "16px", marginRight: "10px" }}
+        />
         <button
           onClick={fetchStockData}
           style={{
@@ -74,24 +80,26 @@ export default function StockDataPage() {
         </button>
       </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {data && (
+      {data.daily && (
         <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
           <h2>{symbol} Stock Data</h2>
-          <p><strong>Open:</strong> {data.open?.toFixed(2) || "N/A"}</p>
-          <p><strong>Close:</strong> {data.close?.toFixed(2) || "N/A"}</p>
-          <p><strong>High:</strong> {data.high?.toFixed(2) || "N/A"}</p>
-          <p><strong>Low:</strong> {data.low?.toFixed(2) || "N/A"}</p>
-          <p><strong>Volume:</strong> {data.volume?.toLocaleString() || "N/A"}</p>
-          <div style={{ marginTop: "20px" }}>
-            <StockChart
-              data={
-                data && data.close
-                  ? [{ close: data.close, date }]
-                  : []
-              }
-              selectedDate={date}
-            />
-          </div>
+          <p>
+            The chart below shows the closing prices for the past {range} days up to{" "}
+            <strong>{new Date(date).toLocaleDateString()}</strong>.
+          </p>
+          <p>
+            The red marker highlights the selected date: <strong>{new Date(date).toLocaleDateString()}</strong>.
+          </p>
+          <p><strong>Open:</strong> {data.daily.open?.toFixed(2) || "N/A"}</p>
+          <p><strong>Close:</strong> {data.daily.close?.toFixed(2) || "N/A"}</p>
+          <p><strong>High:</strong> {data.daily.high?.toFixed(2) || "N/A"}</p>
+          <p><strong>Low:</strong> {data.daily.low?.toFixed(2) || "N/A"}</p>
+          <p><strong>Volume:</strong> {data.daily.volume?.toLocaleString() || "N/A"}</p>
+        </div>
+      )}
+      {data.historical.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <StockChart data={data.historical} selectedDate={date} />
         </div>
       )}
     </div>

@@ -7,35 +7,62 @@ import dynamic from "next/dynamic";
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export default function StockChart({ data, selectedDate }: { data: any[]; selectedDate: string }) {
-  if (!data || data.length === 0 || !data[0]?.close) {
+  if (!data || data.length === 0) {
     console.error("Invalid or empty data provided for the chart:", data);
     return <p>No valid stock data available for the chart.</p>;
   }
 
-  // Chart Options
+  // Prepare data for the chart
+  const categories = data.map((entry) => new Date(entry.date).toLocaleDateString());
+  const seriesData = data.map((entry) => entry.close);
+
+  // Highlight the selected date
+  const selectedIndex = categories.findIndex((date) => date === new Date(selectedDate).toLocaleDateString());
+
   const options = {
     chart: {
       type: "line",
       zoom: { enabled: true },
     },
     xaxis: {
-      categories: [selectedDate],
+      categories,
       title: { text: "Date" },
     },
     yaxis: {
       title: { text: "Price" },
+      labels: {
+        formatter: (value) => value.toFixed(2), // Format numbers to 2 decimal places
+      },
     },
     title: {
-      text: `Stock Price on ${selectedDate}`,
+      text: `Closing Prices: Past ${categories.length} Days (Up to ${new Date(selectedDate).toLocaleDateString()})`,
       align: "center",
+    },
+    markers: {
+      size: data.map((_, index) => (index === selectedIndex ? 6 : 0)), // Highlight selected date
+      colors: ["#FF4560"],
+    },
+    annotations: {
+      xaxis: [
+        {
+          x: new Date(selectedDate).toLocaleDateString(),
+          borderColor: "#FF4560",
+          label: {
+            text: "Selected Date",
+            style: {
+              color: "#fff",
+              background: "#FF4560",
+            },
+          },
+        },
+      ],
     },
   };
 
-  // Chart Series
   const series = [
     {
       name: "Closing Price",
-      data: [data[0]?.close],
+      data: seriesData,
     },
   ];
 

@@ -5,6 +5,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
   const date = searchParams.get("date");
+  const range = searchParams.get("range") || "30"; // Default to 30 days
 
   if (!symbol || !date) {
     return NextResponse.json(
@@ -14,42 +15,39 @@ export async function GET(req: Request) {
   }
 
   try {
-    const period1 = new Date(date);
-    const period2 = new Date(period1);
-    period2.setDate(period1.getDate() + 1); // Ensure period2 is one day after period1
+    const selectedDate = new Date(date);
+    const rangeStartDate = new Date(selectedDate);
+    rangeStartDate.setDate(rangeStartDate.getDate() - parseInt(range)); // Calculate range start
 
-    console.log(`Fetching data for ${symbol} from ${period1.toISOString()} to ${period2.toISOString()}`);
+    console.log(`Fetching data for ${symbol} from ${rangeStartDate.toISOString()} to ${selectedDate.toISOString()}`);
 
-    // Fetch historical data from Yahoo Finance
+    // Fetch historical data
     const result = await yahooFinance.historical(symbol, {
-      period1: period1.toISOString(),
-      period2: period2.toISOString(),
+      period1: rangeStartDate.toISOString(),
+      period2: selectedDate.toISOString(),
       interval: "1d",
     });
 
     console.log("Yahoo Finance Historical Result:", result);
 
     if (!result || result.length === 0) {
-      console.error(`No data found for ${symbol} on ${date}`);
       return NextResponse.json(
-        { error: `No data found for ${symbol} on ${date}` },
+        { error: `No data found for ${symbol}` },
         { status: 404 }
       );
     }
 
-    // Extract the first quote
-    const quote = result[0];
+    // Extract daily data for the selected date
+    const dailyData = result.find(
+      (entry) => new Date(entry.date).toISOString().split("T")[0] === date
+    );
 
-    const data = {
-      date: quote.date,
-      open: quote.open,
-      close: quote.close,
-      high: quote.high,
-      low: quote.low,
-      volume: quote.volume,
+    const response = {
+      daily: dailyData || null, // Selected day's data
+      historical: result, // Full range data
     };
 
-    return NextResponse.json(data);
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Yahoo Finance API Error:", error.message);
     return NextResponse.json(
