@@ -1,39 +1,49 @@
-"use client"; // Ensures this runs in the client
-
+"use client";
 import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
 
-interface StockChartProps {
-  data: { date: string; close: number }[];
-}
-
-export default function StockChart({ data }: StockChartProps) {
-  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+export default function StockChart({ data, selectedDate }) {
+  const chartContainerRef = useRef(null);
 
   useEffect(() => {
-    if (!chartContainerRef.current || data.length === 0) return;
+    if (!data || !selectedDate) return;
+
+    // Ensure `data` is an array
+    const stockData = Array.isArray(data) ? data : [data];
+
+    // Convert selectedDate to YYYY-MM-DD format
+    const selectedDateFormatted = new Date(selectedDate).toISOString().split("T")[0];
+
+    // Filter data to remove future dates
+    const filteredData = stockData
+      .filter((d) => d.date?.split("T")[0] <= selectedDateFormatted)
+      .map((d) => ({
+        time: new Date(d.date).getTime() / 1000, // Convert to UNIX timestamp
+        value: parseFloat(d.close), // Ensure numeric values
+      }));
+
+    if (filteredData.length === 0) {
+      console.warn("⚠️ No valid stock data found for the selected date.");
+      return;
+    }
+
+    // Ensure container exists before creating the chart
+    if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth || 500,
-      height: 300,
-      layout: { background: { color: "#ffffff" }, textColor: "#000" },
-      grid: { vertLines: { color: "#eee" }, horzLines: { color: "#eee" } },
+      width: chartContainerRef.current.clientWidth || 600,
+      height: 400,
+      layout: { backgroundColor: "#ffffff", textColor: "#000" },
+      grid: { vertLines: { color: "#e1e1e1" }, horzLines: { color: "#e1e1e1" } },
     });
 
     const lineSeries = chart.addLineSeries();
+    lineSeries.setData(filteredData);
 
-    // ✅ Ensure we map the full dataset
-    lineSeries.setData(
-      data.map((d) => ({
-        time: d.date.split("T")[0], // Convert ISO date to YYYY-MM-DD
-        value: d.close,
-      }))
-    );
+    chart.timeScale().fitContent(); // Ensure the chart scales correctly
 
-    return () => {
-      chart.remove();
-    };
-  }, [data]);
+    return () => chart.remove(); // Cleanup chart on unmount
+  }, [data, selectedDate]);
 
-  return <div ref={chartContainerRef} className="w-full h-80" />;
+  return <div ref={chartContainerRef} style={{ width: "100%", height: "400px" }} />;
 }

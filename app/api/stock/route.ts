@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     while (attempts < maxAttempts) {
       try {
         result = await yahooFinance.historical(symbol, {
-          period1: "2023-10-01", // Fetch only 3 months instead of 1 year
+          period1: "2000-01-01", // Fetch from the year 2000 instead of 2023
           period2: new Date().toISOString().split("T")[0],
           interval: "1d",
         });
