@@ -99,7 +99,7 @@ export default function StockDataPage() {
       )}
       {data.historical.length > 0 && (
         <div style={{ marginTop: "20px" }}>
-          <StockChart data={data.historical} selectedDate={date} />
+          <StockChart data={data.historical} selectedDate={date} range={range} />
         </div>
       )}
     </div>

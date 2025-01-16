@@ -6,7 +6,15 @@ import dynamic from "next/dynamic";
 // Dynamically load ApexCharts
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-export default function StockChart({ data, selectedDate }: { data: any[]; selectedDate: string }) {
+export default function StockChart({
+  data,
+  selectedDate,
+  range,
+}: {
+  data: any[];
+  selectedDate: string;
+  range: number;
+}) {
   if (!data || data.length === 0) {
     console.error("Invalid or empty data provided for the chart:", data);
     return <p>No valid stock data available for the chart.</p>;
@@ -35,7 +43,7 @@ export default function StockChart({ data, selectedDate }: { data: any[]; select
       },
     },
     title: {
-      text: `Closing Prices: Past ${categories.length} Days (Up to ${new Date(selectedDate).toLocaleDateString()})`,
+      text: `Closing Prices: Past ${range} Days (Up to ${new Date(selectedDate).toLocaleDateString()})`,
       align: "center",
     },
     markers: {

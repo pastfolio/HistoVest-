@@ -1,11 +1,17 @@
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <title>HistoFin</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body>{children}</body>
-    </html>
-  );
+import '../styles/globals.css'; // Import TailwindCSS global styles
+import TopBar from '../components/TopBar'; // Import your TopBar component
+
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <html lang="en">
+            <body>
+                <TopBar /> {/* TopBar is now globally included */}
+                {children} {/* Renders the content of each page */}
+            </body>
+        </html>
+    );
 }
