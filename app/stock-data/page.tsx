@@ -11,29 +11,45 @@ export default function StockDataPage() {
   const [date, setDate] = useState("2022-12-12");
   const [range, setRange] = useState(30); // Default to 30 days
   const [data, setData] = useState({ daily: null, historical: [], metadata: null });
+  const [summary, setSummary] = useState("");
   const [error, setError] = useState("");
 
   const fetchStockData = async () => {
     setError("");
     setData({ daily: null, historical: [], metadata: null });
+    setSummary("");
 
     try {
-      const response = await fetch(
+      // Fetch stock data
+      const stockResponse = await fetch(
         `/api/stock?symbol=${symbol}&date=${date}&range=${range}`
       );
-      const result = await response.json();
+      const stockResult = await stockResponse.json();
 
-      console.log("API Response:", result);
-
-      if (response.ok) {
-        setData(result);
+      if (stockResponse.ok) {
+        setData(stockResult);
       } else {
-        console.error("API Error:", result.error);
-        setError(result.error || "Failed to fetch stock data");
+        setError(stockResult.error || "Failed to fetch stock data");
+        return; // Stop execution if stock data fails
+      }
+
+      // Fetch stock summary
+      const summaryResponse = await fetch(`/api/summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock: symbol, date }),
+      });
+
+      const summaryResult = await summaryResponse.json();
+
+      if (summaryResponse.ok) {
+        setSummary(summaryResult.summary || "No summary available.");
+      } else {
+        setError(summaryResult.error || "Failed to fetch summary.");
       }
     } catch (err) {
       console.error("Fetch Error:", err);
-      setError("Failed to fetch stock data");
+      setError("Failed to fetch data");
     }
   };
 
@@ -91,6 +107,12 @@ export default function StockDataPage() {
           <p><strong>52-Week High:</strong> {data.metadata.week52High}</p>
           <p><strong>52-Week Low:</strong> {data.metadata.week52Low}</p>
           <p><strong>Volume:</strong> {data.metadata.volume}</p>
+        </div>
+      )}
+      {summary && (
+        <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
+          <h2>Stock Summary</h2>
+          <p>{summary}</p>
         </div>
       )}
       {data.historical.length > 0 && (
