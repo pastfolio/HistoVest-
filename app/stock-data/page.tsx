@@ -10,12 +10,12 @@ export default function StockDataPage() {
   const [symbol, setSymbol] = useState("AAPL");
   const [date, setDate] = useState("2022-12-12");
   const [range, setRange] = useState(30); // Default to 30 days
-  const [data, setData] = useState({ daily: null, historical: [] });
+  const [data, setData] = useState({ daily: null, historical: [], metadata: null });
   const [error, setError] = useState("");
 
   const fetchStockData = async () => {
     setError("");
-    setData({ daily: null, historical: [] });
+    setData({ daily: null, historical: [], metadata: null });
 
     try {
       const response = await fetch(
@@ -80,21 +80,17 @@ export default function StockDataPage() {
         </button>
       </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {data.daily && (
+      {data.metadata && (
         <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
-          <h2>{symbol} Stock Data</h2>
-          <p>
-            The chart below shows the closing prices for the past {range} days up to{" "}
-            <strong>{new Date(date).toLocaleDateString()}</strong>.
-          </p>
-          <p>
-            The red marker highlights the selected date: <strong>{new Date(date).toLocaleDateString()}</strong>.
-          </p>
-          <p><strong>Open:</strong> {data.daily.open?.toFixed(2) || "N/A"}</p>
-          <p><strong>Close:</strong> {data.daily.close?.toFixed(2) || "N/A"}</p>
-          <p><strong>High:</strong> {data.daily.high?.toFixed(2) || "N/A"}</p>
-          <p><strong>Low:</strong> {data.daily.low?.toFixed(2) || "N/A"}</p>
-          <p><strong>Volume:</strong> {data.daily.volume?.toLocaleString() || "N/A"}</p>
+          <h2>Stock Metadata</h2>
+          <p><strong>Market Cap:</strong> {data.metadata.marketCap}</p>
+          <p><strong>Beta (5Y Monthly):</strong> {data.metadata.beta}</p>
+          <p><strong>P/E Ratio:</strong> {data.metadata.peRatio}</p>
+          <p><strong>Dividend Yield:</strong> {data.metadata.dividendYield}</p>
+          <p><strong>Previous Close:</strong> {data.metadata.previousClose}</p>
+          <p><strong>52-Week High:</strong> {data.metadata.week52High}</p>
+          <p><strong>52-Week Low:</strong> {data.metadata.week52Low}</p>
+          <p><strong>Volume:</strong> {data.metadata.volume}</p>
         </div>
       )}
       {data.historical.length > 0 && (

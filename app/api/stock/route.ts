@@ -19,7 +19,9 @@ export async function GET(req: Request) {
     const rangeStartDate = new Date(selectedDate);
     rangeStartDate.setDate(rangeStartDate.getDate() - parseInt(range)); // Calculate range start
 
-    console.log(`Fetching data for ${symbol} from ${rangeStartDate.toISOString()} to ${selectedDate.toISOString()}`);
+    console.log(
+      `Fetching data for ${symbol} from ${rangeStartDate.toISOString()} to ${selectedDate.toISOString()}`
+    );
 
     // Fetch historical data
     const result = await yahooFinance.historical(symbol, {
@@ -37,6 +39,26 @@ export async function GET(req: Request) {
       );
     }
 
+    // Fetch metadata for the stock
+    const quoteSummary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["summaryDetail", "price"],
+    });
+
+    console.log("Yahoo Finance Metadata Result:", quoteSummary);
+
+    const metadata = {
+      marketCap: quoteSummary?.price?.marketCap || "N/A",
+      beta: quoteSummary?.summaryDetail?.beta || "N/A",
+      peRatio: quoteSummary?.summaryDetail?.trailingPE || "N/A",
+      dividendYield: quoteSummary?.summaryDetail?.dividendYield || "N/A",
+      previousClose: quoteSummary?.summaryDetail?.previousClose || "N/A",
+      week52High: quoteSummary?.summaryDetail?.fiftyTwoWeekHigh || "N/A",
+      week52Low: quoteSummary?.summaryDetail?.fiftyTwoWeekLow || "N/A",
+      volume: quoteSummary?.summaryDetail?.volume || "N/A",
+    };
+
+    console.log("Extracted Metadata:", metadata);
+
     // Extract daily data for the selected date
     const dailyData = result.find(
       (entry) => new Date(entry.date).toISOString().split("T")[0] === date
@@ -45,6 +67,7 @@ export async function GET(req: Request) {
     const response = {
       daily: dailyData || null, // Selected day's data
       historical: result, // Full range data
+      metadata,
     };
 
     return NextResponse.json(response);
