@@ -13,14 +13,15 @@ export default function StockDataPage() {
   const [data, setData] = useState({ daily: null, historical: [], metadata: null });
   const [summary, setSummary] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const fetchStockData = async () => {
+    setLoading(true);
     setError("");
     setData({ daily: null, historical: [], metadata: null });
     setSummary("");
 
     try {
-      // Fetch stock data
       const stockResponse = await fetch(
         `/api/stock?symbol=${symbol}&date=${date}&range=${range}`
       );
@@ -30,10 +31,9 @@ export default function StockDataPage() {
         setData(stockResult);
       } else {
         setError(stockResult.error || "Failed to fetch stock data");
-        return; // Stop execution if stock data fails
+        return;
       }
 
-      // Fetch stock summary
       const summaryResponse = await fetch(`/api/summary`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,7 +49,9 @@ export default function StockDataPage() {
       }
     } catch (err) {
       console.error("Fetch Error:", err);
-      setError("Failed to fetch data");
+      setError("Failed to fetch data. Please check your network or try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,26 +97,55 @@ export default function StockDataPage() {
           Search
         </button>
       </div>
+
+      {loading && <p style={{ color: "gray" }}>Loading data...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
+
       {data.metadata && (
         <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
           <h2>Stock Metadata</h2>
-          <p><strong>Market Cap:</strong> {data.metadata.marketCap}</p>
-          <p><strong>Beta (5Y Monthly):</strong> {data.metadata.beta}</p>
-          <p><strong>P/E Ratio:</strong> {data.metadata.peRatio}</p>
-          <p><strong>Dividend Yield:</strong> {data.metadata.dividendYield}</p>
-          <p><strong>Previous Close:</strong> {data.metadata.previousClose}</p>
-          <p><strong>52-Week High:</strong> {data.metadata.week52High}</p>
-          <p><strong>52-Week Low:</strong> {data.metadata.week52Low}</p>
-          <p><strong>Volume:</strong> {data.metadata.volume}</p>
+          <p>
+            <strong>Market Cap:</strong>{" "}
+            {data.metadata.marketCap ? parseFloat(data.metadata.marketCap).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>Beta (5Y Monthly):</strong>{" "}
+            {data.metadata.beta ? parseFloat(data.metadata.beta).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>P/E Ratio:</strong>{" "}
+            {data.metadata.peRatio ? parseFloat(data.metadata.peRatio).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>Dividend Yield:</strong>{" "}
+            {data.metadata.dividendYield ? parseFloat(data.metadata.dividendYield).toFixed(4) : "N/A"}
+          </p>
+          <p>
+            <strong>Previous Close:</strong>{" "}
+            {data.metadata.previousClose ? parseFloat(data.metadata.previousClose).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>52-Week High:</strong>{" "}
+            {data.metadata.week52High ? parseFloat(data.metadata.week52High).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>52-Week Low:</strong>{" "}
+            {data.metadata.week52Low ? parseFloat(data.metadata.week52Low).toFixed(2) : "N/A"}
+          </p>
+          <p>
+            <strong>Volume:</strong>{" "}
+            {data.metadata.volume ? Math.round(data.metadata.volume) : "N/A"}
+          </p>
         </div>
       )}
+
       {summary && (
         <div style={{ marginTop: "20px", border: "1px solid #ddd", padding: "10px" }}>
-          <h2>Stock Summary</h2>
+          <h2>Summary</h2>
           <p>{summary}</p>
         </div>
       )}
+
       {data.historical.length > 0 && (
         <div style={{ marginTop: "20px" }}>
           <StockChart data={data.historical} selectedDate={date} range={range} />

@@ -17,27 +17,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create the prompt for GPT-3.5
+    // Refined prompt for detailed analysis
     const prompt = `
-      Provide a brief summary of the financial and economic context for the stock "${stock}" 
-      around the date "${date}". Include significant events, trends, and news that may have influenced it.
+      Please analyze the stock "${stock}" around the date "${date}" and provide a detailed response with at least 4-5 sentences for the following:
+
+      1. Market Expectations: What was expected for this stock at this time?
+      2. Actual Outcomes: What happened to the stock during this period?
+      3. Surprises or Deviations: Were there unexpected events or deviations?
+      4. Causes of Performance: What drove the stock’s performance?
+      5. Emotional Insights: What would it have been like to hold this stock over the past 5 years?
+
+      Be detailed, use examples, and provide clear and complete context.
     `;
 
-    // Call OpenAI API
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 200,
+      max_tokens: 1500, // Increased to allow more detailed responses
       temperature: 0.7,
     });
 
-    // Extract and return the summary
     const summary = response.choices[0]?.message?.content?.trim();
+
+    // Log token usage for debugging
+    console.log("Token Usage:", response.usage);
+
+    if (!summary) {
+      return NextResponse.json(
+        { error: "Failed to generate a valid summary." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ summary });
   } catch (error) {
     console.error("Error with OpenAI API:", error.message);
+    if (error.response) {
+      console.error("OpenAI API Response Error:", error.response.data);
+    }
     return NextResponse.json(
-      { error: "Failed to generate summary." },
+      { error: "Failed to generate summary. Please try again later." },
       { status: 500 }
     );
   }

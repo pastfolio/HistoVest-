@@ -5,7 +5,7 @@ const TopBar = () => {
         <div className="bg-gray-800 text-white shadow-md">
             <div className="container mx-auto flex items-center justify-between py-4 px-6">
                 <div className="text-2xl font-bold">
-                    <Link href="/">HistoFin</Link>
+                    <Link href="/">HistoVest</Link>
                 </div>
                 <div className="flex space-x-4">
                     <Link href="/about" className="hover:text-gray-400">About</Link>
