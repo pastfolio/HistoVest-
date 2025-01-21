@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 
 // Dynamically load StockChart
 const StockChart = dynamic(() => import("./StockChart"), { ssr: false });
@@ -103,6 +104,23 @@ export default function StockDataPage() {
         >
           Search
         </button>
+      </div>
+
+      <div style={{ marginTop: "20px" }}>
+        <Link href="/simulator">
+          <button
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            Go to Simulator
+          </button>
+        </Link>
       </div>
 
       {loading && <p style={{ color: "gray" }}>Loading data...</p>}
