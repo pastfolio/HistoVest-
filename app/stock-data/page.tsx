@@ -55,6 +55,13 @@ export default function StockDataPage() {
     }
   };
 
+  const formatMarketCap = (value: number) => {
+    if (value >= 1e12) return (value / 1e12).toFixed(2) + "T";
+    if (value >= 1e9) return (value / 1e9).toFixed(2) + "B";
+    if (value >= 1e6) return (value / 1e6).toFixed(2) + "M";
+    return value.toLocaleString("en-US");
+  };
+
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Stock Data Lookup</h1>
@@ -106,7 +113,9 @@ export default function StockDataPage() {
           <h2>Stock Metadata</h2>
           <p>
             <strong>Market Cap:</strong>{" "}
-            {data.metadata.marketCap ? parseFloat(data.metadata.marketCap).toFixed(2) : "N/A"}
+            {data.metadata.marketCap
+              ? formatMarketCap(parseFloat(data.metadata.marketCap))
+              : "N/A"}
           </p>
           <p>
             <strong>Beta (5Y Monthly):</strong>{" "}
@@ -118,15 +127,21 @@ export default function StockDataPage() {
           </p>
           <p>
             <strong>Dividend Yield:</strong>{" "}
-            {data.metadata.dividendYield ? parseFloat(data.metadata.dividendYield).toFixed(4) : "N/A"}
+            {data.metadata.dividendYield
+              ? (parseFloat(data.metadata.dividendYield) * 100).toFixed(2) + "%"
+              : "N/A"}
           </p>
           <p>
             <strong>Previous Close:</strong>{" "}
-            {data.metadata.previousClose ? parseFloat(data.metadata.previousClose).toFixed(2) : "N/A"}
+            {data.metadata.previousClose
+              ? parseFloat(data.metadata.previousClose).toFixed(2)
+              : "N/A"}
           </p>
           <p>
             <strong>52-Week High:</strong>{" "}
-            {data.metadata.week52High ? parseFloat(data.metadata.week52High).toFixed(2) : "N/A"}
+            {data.metadata.week52High
+              ? parseFloat(data.metadata.week52High).toFixed(2)
+              : "N/A"}
           </p>
           <p>
             <strong>52-Week Low:</strong>{" "}
@@ -134,7 +149,7 @@ export default function StockDataPage() {
           </p>
           <p>
             <strong>Volume:</strong>{" "}
-            {data.metadata.volume ? Math.round(data.metadata.volume) : "N/A"}
+            {data.metadata.volume ? Math.round(data.metadata.volume).toLocaleString("en-US") : "N/A"}
           </p>
         </div>
       )}
