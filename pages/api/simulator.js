@@ -1,72 +1,57 @@
-import { NextResponse } from "next/server";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import yahooFinance from "yahoo-finance2";
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
       const { stocks, startDate, endDate } = req.body;
 
-      // Mock stock prices for the start and end dates
-      const mockPricesStart = stocks.reduce((acc, stock) => {
-        acc[stock.symbol] = Math.random() * 100; // Replace with real API
-        return acc;
-      }, {});
+      // Fetch historical prices for each stock
+      const stockData = await Promise.all(
+        stocks.map(async (stock) => {
+          const data = await yahooFinance.historical(stock.symbol, {
+            period1: new Date(startDate).toISOString(),
+            period2: new Date(endDate).toISOString(),
+          });
+          return {
+            symbol: stock.symbol,
+            prices: data,
+          };
+        })
+      );
 
-      const mockPricesEnd = stocks.reduce((acc, stock) => {
-        acc[stock.symbol] = Math.random() * 120; // Replace with real API
-        return acc;
-      }, {});
-
+      // Calculate portfolio start and end values
       let portfolioValueStart = 0;
-      let shares = {};
-
-      // Calculate number of shares purchased based on allocation
-      stocks.forEach((stock) => {
-        const percentage = parseFloat(stock.percentage) / 100;
-        const investment = 100000 * percentage; // Assume $100k initial portfolio
-        const priceStart = mockPricesStart[stock.symbol];
-        shares[stock.symbol] = investment / priceStart;
-        portfolioValueStart += shares[stock.symbol] * priceStart;
-      });
-
-      // Calculate portfolio value on the end date
       let portfolioValueEnd = 0;
+      const shares = {};
+
       stocks.forEach((stock) => {
-        const priceEnd = mockPricesEnd[stock.symbol];
-        portfolioValueEnd += shares[stock.symbol] * priceEnd;
+        const stockPrices = stockData.find((s) => s.symbol === stock.symbol)?.prices;
+        if (stockPrices?.length) {
+          const startPrice = stockPrices[0]?.close; // First date price
+          const endPrice = stockPrices[stockPrices.length - 1]?.close; // Last date price
+          const percentage = parseFloat(stock.percentage) / 100;
+
+          const investment = 100000 * percentage; // Assume $100k initial portfolio
+          shares[stock.symbol] = investment / startPrice;
+
+          portfolioValueStart += shares[stock.symbol] * startPrice;
+          portfolioValueEnd += shares[stock.symbol] * endPrice;
+        }
       });
 
-      // Generate AI summary
-      const stockDetails = stocks
-        .map((stock) => `${stock.symbol}: ${stock.percentage}%`)
-        .join(", ");
-      const prompt = `
-        Analyze the portfolio performance from ${startDate} to ${endDate} based on the following stocks:
-        ${stockDetails}.
-        
-        Consider:
-        1. Stock-specific performance: which stocks performed the best and the worst? Why?
-        2. Broader market trends during this period (e.g., macroeconomic factors, inflation, interest rates, etc.).
-        3. Sector-specific trends (e.g., technology, energy, finance).
-        4. Recommendations for improving portfolio allocation based on past performance.
-        Provide a detailed analysis in plain language, highlighting what went well and what could be improved.
+      // Generate AI summary (mocked for now)
+      const summary = `
+        From ${startDate} to ${endDate}, your portfolio started with $${portfolioValueStart
+          .toFixed(2)
+          .toLocaleString()} and ended with $${portfolioValueEnd
+          .toFixed(2)
+          .toLocaleString()}. Key changes were influenced by real stock price fluctuations.
       `;
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 1000,
-        temperature: 0.7,
-      });
-
-      const summary =
-        response.choices[0]?.message?.content || "No insights available.";
 
       res.status(200).json({
         startValue: portfolioValueStart,
         endValue: portfolioValueEnd,
+        shares,
         summary,
       });
     } catch (error) {
