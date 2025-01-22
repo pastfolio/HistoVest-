@@ -5,61 +5,62 @@ export default async function handler(req, res) {
     try {
       const { stocks, startDate, endDate } = req.body;
 
-      // Fetch historical prices for each stock
-      const stockData = await Promise.all(
-        stocks.map(async (stock) => {
-          const data = await yahooFinance.historical(stock.symbol, {
-            period1: new Date(startDate).toISOString(),
-            period2: new Date(endDate).toISOString(),
-          });
-          return {
-            symbol: stock.symbol,
-            prices: data,
-          };
-        })
-      );
+      const startValue = 100000; // Example starting portfolio value
+      let endValue = 0;
 
-      // Calculate portfolio start and end values
-      let portfolioValueStart = 0;
-      let portfolioValueEnd = 0;
-      const shares = {};
+      const chartDataBefore = [];
+      const chartDataAfter = [];
 
-      stocks.forEach((stock) => {
-        const stockPrices = stockData.find((s) => s.symbol === stock.symbol)?.prices;
-        if (stockPrices?.length) {
-          const startPrice = stockPrices[0]?.close; // First date price
-          const endPrice = stockPrices[stockPrices.length - 1]?.close; // Last date price
-          const percentage = parseFloat(stock.percentage) / 100;
+      for (const stock of stocks) {
+        // Fetch historical data from Yahoo Finance
+        const historicalData = await yahooFinance.historical(stock.symbol, {
+          period1: new Date(startDate).toISOString(),
+          period2: new Date(endDate).toISOString(),
+          interval: "1d",
+        });
 
-          const investment = 100000 * percentage; // Assume $100k initial portfolio
-          shares[stock.symbol] = investment / startPrice;
-
-          portfolioValueStart += shares[stock.symbol] * startPrice;
-          portfolioValueEnd += shares[stock.symbol] * endPrice;
+        if (!historicalData || historicalData.length === 0) {
+          console.error(`No data found for ${stock.symbol}`);
+          continue;
         }
-      });
 
-      // Generate AI summary (mocked for now)
-      const summary = `
-        From ${startDate} to ${endDate}, your portfolio started with $${portfolioValueStart
-          .toFixed(2)
-          .toLocaleString()} and ended with $${portfolioValueEnd
-          .toFixed(2)
-          .toLocaleString()}. Key changes were influenced by real stock price fluctuations.
-      `;
+        // Extract start and end prices
+        const startPrice = historicalData[0].close;
+        const endPrice = historicalData[historicalData.length - 1].close;
 
+        // Calculate allocation and final value
+        const allocation = (stock.percentage / 100) * startValue;
+        const shares = allocation / startPrice;
+        const finalValue = shares * endPrice;
+
+        // Push data for before allocation chart
+        chartDataBefore.push({
+          name: stock.symbol,
+          value: stock.percentage,
+        });
+
+        endValue += finalValue;
+
+        // Push data for after allocation chart
+        chartDataAfter.push({
+          name: stock.symbol,
+          value: ((shares * endPrice) / endValue) * 100,
+        });
+      }
+
+      // Return calculated results and chart data
       res.status(200).json({
-        startValue: portfolioValueStart,
-        endValue: portfolioValueEnd,
-        shares,
-        summary,
+        startValue,
+        endValue,
+        chartDataBefore,
+        chartDataAfter,
       });
     } catch (error) {
       console.error("Error in simulator API:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "Failed to fetch stock data" });
     }
   } else {
     res.setHeader("Allow", ["POST"]);
-    res.status(405).json({ error: `Method ${req.method} not allowed` });
+    res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }
