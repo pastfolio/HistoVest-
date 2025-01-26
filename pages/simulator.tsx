@@ -2,30 +2,41 @@
 
 import { useState } from "react";
 
-export default function Simulator() {
-  const [stocks, setStocks] = useState([{ symbol: "", percentage: "" }]);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [portfolioStartValue, setPortfolioStartValue] = useState(null);
-  const [portfolioEndValue, setPortfolioEndValue] = useState(null);
-  const [summary, setSummary] = useState("");
+interface Stock {
+  symbol: string;
+  percentage: string;
+}
 
-  // Add stock input
+export default function Simulator() {
+  const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [portfolioStartValue, setPortfolioStartValue] = useState<number | null>(null);
+  const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
+  const [summary, setSummary] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
   const addStock = () => {
     if (stocks.length < 10) {
       setStocks([...stocks, { symbol: "", percentage: "" }]);
     }
   };
 
-  // Handle change for stock inputs
-  const handleStockChange = (index, field, value) => {
+  const handleStockChange = (index: number, field: "symbol" | "percentage", value: string) => {
     const updatedStocks = [...stocks];
     updatedStocks[index][field] = value;
     setStocks(updatedStocks);
   };
 
-  // Fetch portfolio data and summary
+  const removeStock = (index: number) => {
+    setStocks(stocks.filter((_, i) => i !== index));
+  };
+
   const calculatePortfolio = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
       const response = await fetch("/api/simulator", {
         method: "POST",
@@ -33,15 +44,30 @@ export default function Simulator() {
         body: JSON.stringify({ stocks, startDate, endDate }),
       });
 
-      if (!response.ok) throw new Error("Failed to calculate portfolio");
+      if (!response.ok) {
+        throw new Error("Failed to calculate portfolio");
+      }
 
       const result = await response.json();
       setPortfolioStartValue(result.startValue);
       setPortfolioEndValue(result.endValue);
       setSummary(result.summary);
-    } catch (error) {
-      console.error("Error calculating portfolio:", error);
+    } catch (err) {
+      console.error("Error calculating portfolio:", err);
+      setError("An error occurred while calculating the portfolio. Please try again.");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const resetSimulation = () => {
+    setStocks([{ symbol: "", percentage: "" }]);
+    setStartDate("");
+    setEndDate("");
+    setPortfolioStartValue(null);
+    setPortfolioEndValue(null);
+    setSummary("");
+    setError(null);
   };
 
   return (
@@ -62,7 +88,7 @@ export default function Simulator() {
       <div>
         <h2 style={{ color: "#007bff" }}>Configure Portfolio</h2>
         <p style={{ marginBottom: "20px" }}>
-          Allocate up to 100% of your portfolio (minimum 10 stocks):
+          Allocate up to 100% of your portfolio. Maximum of 10 stocks allowed:
         </p>
         {stocks.map((stock, index) => (
           <div
@@ -81,7 +107,7 @@ export default function Simulator() {
               style={{
                 marginRight: "10px",
                 padding: "10px",
-                width: "60%",
+                width: "40%",
                 borderRadius: "5px",
                 border: "1px solid #ddd",
               }}
@@ -90,33 +116,46 @@ export default function Simulator() {
               type="number"
               placeholder="Percentage (e.g., 10)"
               value={stock.percentage}
-              onChange={(e) =>
-                handleStockChange(index, "percentage", e.target.value)
-              }
+              onChange={(e) => handleStockChange(index, "percentage", e.target.value)}
               style={{
+                marginRight: "10px",
                 padding: "10px",
                 width: "30%",
                 borderRadius: "5px",
                 border: "1px solid #ddd",
               }}
             />
+            <button
+              onClick={() => removeStock(index)}
+              style={{
+                padding: "8px 12px",
+                backgroundColor: "#dc3545",
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              Remove
+            </button>
           </div>
         ))}
-        <button
-          onClick={addStock}
-          disabled={stocks.length >= 10}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#28a745",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-            marginBottom: "20px",
-          }}
-        >
-          Add Stock
-        </button>
+        {stocks.length < 10 && (
+          <button
+            onClick={addStock}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+              marginBottom: "20px",
+            }}
+          >
+            Add Stock
+          </button>
+        )}
       </div>
 
       <div>
@@ -149,20 +188,27 @@ export default function Simulator() {
 
       <button
         onClick={calculatePortfolio}
+        disabled={loading || !startDate || !endDate}
         style={{
           marginTop: "20px",
           padding: "15px 25px",
-          backgroundColor: "#007bff",
+          backgroundColor: loading ? "#6c757d" : "#007bff",
           color: "white",
           border: "none",
           borderRadius: "5px",
-          cursor: "pointer",
+          cursor: loading ? "not-allowed" : "pointer",
           display: "block",
           width: "100%",
         }}
       >
-        Show Portfolio
+        {loading ? "Calculating..." : "Show Portfolio"}
       </button>
+
+      {error && (
+        <div style={{ marginTop: "20px", color: "red" }}>
+          <strong>Error:</strong> {error}
+        </div>
+      )}
 
       {portfolioStartValue !== null && portfolioEndValue !== null && (
         <div
@@ -186,6 +232,20 @@ export default function Simulator() {
           <p style={{ whiteSpace: "pre-wrap", lineHeight: "1.6", color: "#555" }}>
             {summary}
           </p>
+          <button
+            onClick={resetSimulation}
+            style={{
+              marginTop: "20px",
+              padding: "10px 20px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            Reset Simulation
+          </button>
         </div>
       )}
     </div>

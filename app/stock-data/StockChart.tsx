@@ -14,7 +14,6 @@ import {
 } from "chart.js";
 import "chartjs-adapter-date-fns"; // Date adapter
 
-// Register chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -47,65 +46,20 @@ export default function StockChart({ data, selectedDate, range }: any) {
   const options = {
     responsive: true,
     plugins: {
-      legend: {
-        display: false, // No legend for simplicity
-      },
-      title: {
-        display: true,
-        text: "Stock Price Chart",
-        font: {
-          size: 18,
-        },
-      },
+      legend: { display: false },
+      title: { display: true, text: "Stock Price Chart", font: { size: 18 } },
     },
     scales: {
       x: {
-        type: "time", // Use time scale for better date handling
-        time: {
-          unit: range > 60 ? "month" : range > 10 ? "week" : "day", // Adjust granularity
-          tooltipFormat: "MMM dd, yyyy", // Tooltip date format
-          displayFormats: {
-            day: "MMM dd",
-            week: "MMM dd",
-            month: "MMM yyyy",
-          },
-        },
-        title: {
-          display: true,
-          text: "Date",
-          font: {
-            size: 14,
-          },
-        },
-        ticks: {
-          maxRotation: 0, // Ensure labels don’t overlap
-          autoSkip: true, // Skip labels if too many
-        },
+        type: "time",
+        time: { unit: range > 60 ? "month" : range > 10 ? "week" : "day" },
+        title: { display: true, text: "Date", font: { size: 14 } },
       },
       y: {
-        title: {
-          display: true,
-          text: "Price (USD)",
-          font: {
-            size: 14,
-          },
-        },
-        ticks: {
-          callback: function (value: number) {
-            return `$${value.toFixed(2)}`; // Format y-axis labels
-          },
-        },
+        title: { display: true, text: "Price (USD)", font: { size: 14 } },
       },
     },
-    interaction: {
-      mode: "index",
-      intersect: false,
-    },
-    elements: {
-      line: {
-        tension: 0.4, // Smooth line
-      },
-    },
+    interaction: { mode: "index", intersect: false },
   };
 
   return <Line data={chartData} options={options} />;
