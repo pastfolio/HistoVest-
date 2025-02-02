@@ -104,7 +104,7 @@ export default function StockDataPage() {
 
       {/* 🔹 Go to Simulator Button */}
       <div className="text-center mt-4">
-        <Link href="/simulator">
+        <Link href="/historical-stock-simulator">
           <button className="bg-green-600 text-white font-bold py-3 px-6 rounded-md hover:bg-green-700 transition">
             Go to Simulator
           </button>

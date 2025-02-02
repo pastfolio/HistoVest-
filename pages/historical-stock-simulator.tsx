@@ -99,10 +99,26 @@ export default function Simulator() {
       <div className="max-w-3xl w-full p-6 bg-darkGray text-white rounded-lg shadow-lg">
         {/* SEO Meta Tags */}
         <Head>
+          {/* Standard Meta Tags */}
           <meta name="description" content="Track historical stock data with our stock simulator. Learn from past stock performance and investment decisions." />
           <meta name="keywords" content="historical stock simulator, stock market, stock data, stock analysis, investment strategy" />
           <meta name="author" content="HistoFin" />
           <title>HistoFin - Historical Stock Simulator</title>
+
+          {/* Structured Data for SEO */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "HistoFin - Historical Stock Simulator",
+                "description": "Analyze past stock performance, simulate investments, and gain insights for smarter decisions.",
+                "url": "http://localhost:3000/historical-stock-simulator",
+                "mainEntityOfPage": "http://localhost:3000/historical-stock-simulator",
+              }),
+            }}
+          ></script>
         </Head>
 
         <h1 className="text-2xl font-bold text-gold text-center">HistoVest Simulator</h1>
