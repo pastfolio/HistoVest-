@@ -9,10 +9,10 @@ import {
   Title,
   Tooltip,
   Legend,
-  Filler, // For the shaded area
-  TimeScale, // For better date handling
+  Filler,
+  TimeScale,
 } from "chart.js";
-import "chartjs-adapter-date-fns"; // Date adapter
+import "chartjs-adapter-date-fns";
 
 ChartJS.register(
   CategoryScale,
@@ -27,40 +27,55 @@ ChartJS.register(
 );
 
 export default function StockChart({ data, selectedDate, range }: any) {
+  if (!data || data.length === 0) {
+    return <p style={{ textAlign: "center", color: "#D4AF37" }}>No data available for this range.</p>;
+  }
+
   const chartData = {
-    labels: data.map((point: any) => point.date), // Ensure date strings or formatted values
+    labels: data.map((point: any) => point.date),
     datasets: [
       {
         label: `Closing Prices: Past ${range} Days (Up to ${selectedDate})`,
         data: data.map((point: any) => point.close),
-        borderColor: "rgba(75,192,192,1)", // Line color
-        backgroundColor: "rgba(75,192,192,0.2)", // Fill color below the line
+        borderColor: "#1E90FF", // Blue line
+        backgroundColor: "rgba(30, 144, 255, 0.2)", // Light blue fill
         borderWidth: 2,
-        tension: 0.4, // Smoother line
-        fill: true, // Enables the shaded area below the line
-        pointRadius: 0, // No points displayed on the line
+        tension: 0.4, // Smooth line
+        fill: true,
+        pointRadius: 0, // Hide points for a cleaner look
       },
     ],
   };
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false, // Allows setting custom height
     plugins: {
       legend: { display: false },
-      title: { display: true, text: "Stock Price Chart", font: { size: 18 } },
+      title: { display: true, text: "Stock Price Chart", font: { size: 18, weight: "bold" }, color: "#D4AF37" },
     },
     scales: {
       x: {
         type: "time",
         time: { unit: range > 60 ? "month" : range > 10 ? "week" : "day" },
-        title: { display: true, text: "Date", font: { size: 14 } },
+        title: { display: true, text: "Date", font: { size: 14 }, color: "#D4AF37" },
+        ticks: { color: "#D4AF37" },
+        grid: { color: "#555" }, // Grey grid lines
       },
       y: {
-        title: { display: true, text: "Price (USD)", font: { size: 14 } },
+        title: { display: true, text: "Price (USD)", font: { size: 14 }, color: "#D4AF37" },
+        ticks: { color: "#D4AF37" },
+        grid: { color: "#555" }, // Grey grid lines
       },
     },
     interaction: { mode: "index", intersect: false },
   };
 
-  return <Line data={chartData} options={options} />;
+  return (
+    <div style={{ backgroundColor: "#1A1A1A", padding: "20px", borderRadius: "8px" }}>
+      <div style={{ height: "400px" }}>
+        <Line data={chartData} options={options} />
+      </div>
+    </div>
+  );
 }

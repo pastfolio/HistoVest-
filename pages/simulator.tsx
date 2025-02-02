@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Head from "next/head"; // Import Head for adding meta tags
 
 interface Stock {
   symbol: string;
@@ -11,8 +12,9 @@ export default function Simulator() {
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [portfolioStartValue, setPortfolioStartValue] = useState<number | null>(null);
+  const [portfolioStartValue, setPortfolioStartValue] = useState<number>(100000);
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
+  const [cashRemaining, setCashRemaining] = useState<number>(0);
   const [summary, setSummary] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,11 +39,30 @@ export default function Simulator() {
     setLoading(true);
     setError(null);
 
+    // Ensure start date is not after today
+    const today = new Date().toISOString().split("T")[0];
+    if (endDate > today) {
+      setError("End date cannot be in the future.");
+      setLoading(false);
+      return;
+    }
+
+    // Ensure total allocation does not exceed 100%
+    const totalPercentage = stocks.reduce((sum, stock) => sum + (parseFloat(stock.percentage) || 0), 0);
+    if (totalPercentage > 100) {
+      setError("Total allocation cannot exceed 100%.");
+      setLoading(false);
+      return;
+    }
+
     try {
+      const cashPercentage = Math.max(0, 100 - totalPercentage);
+      const cashAmount = (portfolioStartValue * cashPercentage) / 100;
+
       const response = await fetch("/api/simulator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks, startDate, endDate }),
+        body: JSON.stringify({ stocks, startDate, endDate, cashPercentage }),
       });
 
       if (!response.ok) {
@@ -49,8 +70,10 @@ export default function Simulator() {
       }
 
       const result = await response.json();
-      setPortfolioStartValue(result.startValue);
-      setPortfolioEndValue(result.endValue);
+      const totalPortfolioEndValue = result.endValue + cashAmount;
+
+      setPortfolioEndValue(totalPortfolioEndValue);
+      setCashRemaining(cashAmount);
       setSummary(result.summary);
     } catch (err) {
       console.error("Error calculating portfolio:", err);
@@ -64,190 +87,132 @@ export default function Simulator() {
     setStocks([{ symbol: "", percentage: "" }]);
     setStartDate("");
     setEndDate("");
-    setPortfolioStartValue(null);
+    setPortfolioStartValue(100000);
     setPortfolioEndValue(null);
+    setCashRemaining(0);
     setSummary("");
     setError(null);
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "800px",
-        margin: "20px auto",
-        fontFamily: "Arial, sans-serif",
-        padding: "20px",
-        border: "1px solid #ddd",
-        borderRadius: "10px",
-        boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-        backgroundColor: "#f9f9f9",
-      }}
-    >
-      <h1 style={{ textAlign: "center", color: "#333" }}>HistoVest Simulator</h1>
+    <div className="min-h-screen bg-darkGray text-white flex justify-center items-center">
+      <div className="max-w-3xl w-full p-6 bg-darkGray text-white rounded-lg shadow-lg">
+        {/* SEO Meta Tags */}
+        <Head>
+          <meta name="description" content="Track historical stock data with our stock simulator. Learn from past stock performance and investment decisions." />
+          <meta name="keywords" content="historical stock simulator, stock market, stock data, stock analysis, investment strategy" />
+          <meta name="author" content="HistoFin" />
+          <title>HistoFin - Historical Stock Simulator</title>
+        </Head>
 
-      <div>
-        <h2 style={{ color: "#007bff" }}>Configure Portfolio</h2>
-        <p style={{ marginBottom: "20px" }}>
-          Allocate up to 100% of your portfolio. Maximum of 10 stocks allowed:
-        </p>
-        {stocks.map((stock, index) => (
-          <div
-            key={index}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "15px",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Stock Symbol (e.g., AAPL)"
-              value={stock.symbol}
-              onChange={(e) => handleStockChange(index, "symbol", e.target.value)}
-              style={{
-                marginRight: "10px",
-                padding: "10px",
-                width: "40%",
-                borderRadius: "5px",
-                border: "1px solid #ddd",
-              }}
-            />
-            <input
-              type="number"
-              placeholder="Percentage (e.g., 10)"
-              value={stock.percentage}
-              onChange={(e) => handleStockChange(index, "percentage", e.target.value)}
-              style={{
-                marginRight: "10px",
-                padding: "10px",
-                width: "30%",
-                borderRadius: "5px",
-                border: "1px solid #ddd",
-              }}
-            />
+        <h1 className="text-2xl font-bold text-gold text-center">HistoVest Simulator</h1>
+
+        {/* Configure Portfolio Section */}
+        <div className="mt-4">
+          <h2 className="text-lg font-bold text-gold">Configure Portfolio</h2>
+          <p className="text-lightGray">Allocate up to 100% of your portfolio. Any unallocated amount will remain as cash.</p>
+
+          {stocks.map((stock, index) => (
+            <div key={index} className="flex space-x-3 items-center mt-2">
+              <input
+                type="text"
+                placeholder="Stock Symbol (e.g., AAPL)"
+                value={stock.symbol}
+                onChange={(e) => handleStockChange(index, "symbol", e.target.value)}
+                className="p-2 bg-mediumGray text-white border border-gray-700 rounded-md w-1/2"
+              />
+              <div className="flex items-center bg-mediumGray text-white border border-gray-700 rounded-md px-2 w-1/4">
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={stock.percentage}
+                  onChange={(e) => handleStockChange(index, "percentage", e.target.value)}
+                  className="w-full bg-transparent text-white outline-none p-2"
+                />
+                <span className="text-lightGray">% </span>
+              </div>
+              <button
+                onClick={() => removeStock(index)}
+                className="px-3 py-2 bg-red-600 text-white font-semibold rounded-md"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          {stocks.length < 10 && (
             <button
-              onClick={() => removeStock(index)}
-              style={{
-                padding: "8px 12px",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
+              onClick={addStock}
+              className="mt-3 px-4 py-2 bg-gold text-black font-bold rounded-md w-full hover:opacity-90"
             >
-              Remove
+              Add Stock
             </button>
+          )}
+        </div>
+
+        {/* Date Range Selection */}
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-gold">Select Date Range</h2>
+          <div className="flex space-x-3">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="p-2 bg-mediumGray text-white border border-gray-700 rounded-md w-1/2"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="p-2 bg-mediumGray text-white border border-gray-700 rounded-md w-1/2"
+            />
           </div>
-        ))}
-        {stocks.length < 10 && (
-          <button
-            onClick={addStock}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-              marginBottom: "20px",
-            }}
-          >
-            Add Stock
-          </button>
-        )}
-      </div>
-
-      <div>
-        <h2 style={{ color: "#007bff" }}>Select Date Range</h2>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={{
-              padding: "10px",
-              borderRadius: "5px",
-              border: "1px solid #ddd",
-              width: "50%",
-            }}
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            style={{
-              padding: "10px",
-              borderRadius: "5px",
-              border: "1px solid #ddd",
-              width: "50%",
-            }}
-          />
         </div>
-      </div>
 
-      <button
-        onClick={calculatePortfolio}
-        disabled={loading || !startDate || !endDate}
-        style={{
-          marginTop: "20px",
-          padding: "15px 25px",
-          backgroundColor: loading ? "#6c757d" : "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: loading ? "not-allowed" : "pointer",
-          display: "block",
-          width: "100%",
-        }}
-      >
-        {loading ? "Calculating..." : "Show Portfolio"}
-      </button>
-
-      {error && (
-        <div style={{ marginTop: "20px", color: "red" }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {portfolioStartValue !== null && portfolioEndValue !== null && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "20px",
-            borderRadius: "10px",
-            backgroundColor: "#ffffff",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-          }}
+        {/* Show Portfolio Button */}
+        <button
+          onClick={calculatePortfolio}
+          disabled={loading || !startDate || !endDate}
+          className={`mt-6 px-4 py-3 bg-gold text-black font-bold rounded-md w-full hover:opacity-90 ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         >
-          <h2 style={{ color: "#007bff" }}>
-            Portfolio Value on <span style={{ fontWeight: "bold" }}>{startDate}</span>: $
-            {portfolioStartValue.toFixed(2)}
-          </h2>
-          <h2 style={{ color: "#007bff" }}>
-            Portfolio Value on <span style={{ fontWeight: "bold" }}>{endDate}</span>: $
-            {portfolioEndValue.toFixed(2)}
-          </h2>
-          <h3 style={{ color: "#333", marginTop: "20px" }}>Performance Summary:</h3>
-          <p style={{ whiteSpace: "pre-wrap", lineHeight: "1.6", color: "#555" }}>
-            {summary}
-          </p>
-          <button
-            onClick={resetSimulation}
-            style={{
-              marginTop: "20px",
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            Reset Simulation
-          </button>
-        </div>
-      )}
+          {loading ? "Calculating..." : "Show Portfolio"}
+        </button>
+
+        {/* Error Handling */}
+        {error && <p className="mt-3 text-red-500 font-bold">{error}</p>}
+
+        {/* Portfolio Performance */}
+        {portfolioEndValue !== null && (
+          <div className="mt-6 p-4 bg-black border border-gray-700 rounded-md">
+            <h2 className="text-lg font-bold text-gold">Portfolio Performance</h2>
+            <p>
+              <span className="font-bold">Total Start Value:</span> $
+              {portfolioStartValue.toLocaleString()}
+            </p>
+            <p>
+              <span className="font-bold">Total End Value:</span> $
+              {portfolioEndValue.toLocaleString()}
+            </p>
+            <p className="text-gold font-bold">
+              <span className="font-bold">Cash Remaining:</span> $
+              {cashRemaining.toLocaleString()}
+            </p>
+
+            <h3 className="text-gold font-bold mt-4">Performance Summary:</h3>
+            <p className="text-lightGray">{summary}</p>
+          </div>
+        )}
+
+        {/* Reset Simulation Button */}
+        <button
+          onClick={resetSimulation}
+          className="mt-4 px-4 py-2 bg-gold text-black font-bold rounded-md w-full hover:opacity-90"
+        >
+          Reset Simulation
+        </button>
+      </div>
     </div>
   );
 }

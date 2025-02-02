@@ -17,23 +17,42 @@ export async function POST(req: Request) {
       );
     }
 
-    // Refined prompt for detailed analysis
+    // Refined prompt for broader historical analysis
     const prompt = `
-      Please analyze the stock "${stock}" around the date "${date}" and provide a detailed response with at least 4-5 sentences for the following:
+      Provide a detailed analysis of the stock "${stock}" over the one-year period leading up to "${date}". The response must include:
 
-      1. Market Expectations: What was expected for this stock at this time?
-      2. Actual Outcomes: What happened to the stock during this period?
-      3. Surprises or Deviations: Were there unexpected events or deviations?
-      4. Causes of Performance: What drove the stock’s performance?
-      5. Emotional Insights: What would it have been like to hold this stock over the past 5 years?
+      1. Earnings Performance  
+         - How did the company perform in its quarterly earnings over the past year?  
+         - Were revenue and earnings per share (EPS) generally above or below analyst expectations?  
+         - Were there any changes in forward guidance that impacted the stock price?  
 
-      Be detailed, use examples, and provide clear and complete context.
+      2. Major Business Developments  
+         - Were any significant products, services, or strategic initiatives launched?  
+         - Did the company enter new markets, face major regulatory challenges, or announce large acquisitions?  
+         - Were there any major supply chain issues or external factors that affected operations?  
+
+      3. Market and Investor Reaction  
+         - How did the stock price trend over the year? Identify major rallies, corrections, or prolonged periods of volatility.  
+         - What events triggered the most significant stock movements, and what was the market’s reaction?  
+         - Were there major institutional investors increasing or reducing their stakes?  
+
+      4. Competitive and Industry Factors  
+         - How did the company perform relative to its industry and direct competitors?  
+         - Were there any major competitor launches or innovations that influenced investor sentiment?  
+         - Were there macroeconomic factors such as inflation, interest rates, or geopolitical events that affected the stock?  
+
+      5. Investor Sentiment and Key Takeaways  
+         - What was the general sentiment among investors, analysts, and the financial media?  
+         - Were there any major analyst upgrades or downgrades, and how did they impact the stock?  
+         - If someone was holding this stock over the past year, what challenges and opportunities would they have experienced?  
+
+      The response should provide specific details and context, including earnings numbers, stock price reactions, and any external events that influenced performance.
     `;
 
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1500, // Increased to allow more detailed responses
+      max_tokens: 2000, // Increased for richer analysis
       temperature: 0.7,
     });
 
