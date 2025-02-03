@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import yahooFinance from "yahoo-finance2";
 import OpenAI from "openai";
+
+// Initialize OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
@@ -7,63 +10,90 @@ export default async function handler(req, res) {
     try {
       const { stocks, startDate, endDate } = req.body;
 
-      // Mock stock prices for the start and end dates
-      const mockPricesStart = stocks.reduce((acc, stock) => {
-        acc[stock.symbol] = Math.random() * 100; // Replace with real API
-        return acc;
-      }, {});
-
-      const mockPricesEnd = stocks.reduce((acc, stock) => {
-        acc[stock.symbol] = Math.random() * 120; // Replace with real API
-        return acc;
-      }, {});
-
       let portfolioValueStart = 0;
-      let shares = {};
-
-      // Calculate number of shares purchased based on allocation
-      stocks.forEach((stock) => {
-        const percentage = parseFloat(stock.percentage) / 100;
-        const investment = 100000 * percentage; // Assume $100k initial portfolio
-        const priceStart = mockPricesStart[stock.symbol];
-        shares[stock.symbol] = investment / priceStart;
-        portfolioValueStart += shares[stock.symbol] * priceStart;
-      });
-
-      // Calculate portfolio value on the end date
       let portfolioValueEnd = 0;
-      stocks.forEach((stock) => {
-        const priceEnd = mockPricesEnd[stock.symbol];
-        portfolioValueEnd += shares[stock.symbol] * priceEnd;
-      });
+      let shares = {};
+      let stockSummaries = [];
 
-      // Generate AI summary
-      const stockDetails = stocks
-        .map((stock) => `${stock.symbol}: ${stock.percentage}%`)
-        .join(", ");
-      const prompt = `
-        Analyze the portfolio performance from ${startDate} to ${endDate} based on the following stocks:
-        ${stockDetails}.
-        
+      const period1 = new Date(startDate).toISOString().split("T")[0];
+      const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+
+      console.log(`Fetching data from Yahoo Finance for ${stocks.length} stocks...`);
+
+      for (const stock of stocks) {
+        try {
+          const stockData = await yahooFinance.chart(stock.symbol, {
+            period1: period1,
+            period2: period2,
+            interval: "1d",
+          });
+
+          if (!stockData.quotes || stockData.quotes.length < 2) {
+            throw new Error(`No valid stock data found for ${stock.symbol}`);
+          }
+
+          // ✅ Extract Adjusted Close Prices
+          const startPrice = stockData.quotes[0].adjclose;
+          const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
+
+          console.log(`${stock.symbol} Adjusted Prices: Start - ${startPrice}, End - ${endPrice}`);
+
+          // Calculate shares purchased
+          const percentage = parseFloat(stock.percentage) / 100;
+          const investment = 100000 * percentage;
+          shares[stock.symbol] = investment / startPrice;
+
+          // Calculate portfolio value
+          portfolioValueStart += shares[stock.symbol] * startPrice;
+          portfolioValueEnd += shares[stock.symbol] * endPrice;
+
+          // Prepare stock summary for AI prompt
+          stockSummaries.push(
+            `- **${stock.symbol.toUpperCase()}**: Started at $${startPrice.toFixed(2)}, ended at $${endPrice.toFixed(2)}.`
+          );
+        } catch (error) {
+          console.error(`Error fetching data for ${stock.symbol}:`, error);
+        }
+      }
+
+      if (portfolioValueStart === 0) {
+        throw new Error("Portfolio start value is zero, check stock data retrieval.");
+      }
+
+      const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
+      console.log(`Final Portfolio Value: ${portfolioValueEnd}, Growth: ${growth}%`);
+
+      // ✅ Generate ChatGPT summary
+      const aiPrompt = `
+        Analyze the performance of the portfolio from ${startDate} to ${endDate}.
+
+        Portfolio Details:
+        ${stockSummaries.join("\n")}
+
         Consider:
-        1. Stock-specific performance: which stocks performed the best and the worst? Why?
-        2. Broader market trends during this period (e.g., macroeconomic factors, inflation, interest rates, etc.).
-        3. Sector-specific trends (e.g., technology, energy, finance).
-        4. Recommendations for improving portfolio allocation based on past performance.
-        Provide a detailed analysis in plain language, highlighting what went well and what could be improved.
+        - Which stock performed the best and the worst?
+        - Broader market trends during this period (macroeconomic factors, inflation, interest rates, etc.).
+        - Sector-specific trends (technology, energy, finance).
+        - Recommendations for improving portfolio allocation based on past performance.
+
+        Provide a detailed yet easy-to-understand analysis.
       `;
-      const response = await openai.chat.completions.create({
+
+      const aiResponse = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: aiPrompt }],
         max_tokens: 1000,
         temperature: 0.7,
       });
-      const summary =
-        response.choices[0]?.message?.content || "No insights available.";
+
+      const summary = aiResponse.choices[0]?.message?.content || "No insights available.";
 
       res.status(200).json({
-        startValue: portfolioValueStart,
-        endValue: portfolioValueEnd,
+        startValue: portfolioValueStart.toFixed(2),
+        endValue: portfolioValueEnd.toFixed(2),
+        growth: growth.toFixed(2),
         summary,
       });
     } catch (error) {
