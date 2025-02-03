@@ -3,62 +3,59 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
-    if (req.method === "POST") {
-        try {
-            const { stocks, startDate, endDate } = req.body;
-
-            if (!stocks || !Array.isArray(stocks) || stocks.length === 0) {
-                return res.status(400).json({ error: "Invalid or missing stock data" });
-            }
-
-            // Format stock list dynamically
-            const stockList = stocks.map(stock => stock.symbol.toUpperCase()).join(", ");
-
-            // Construct AI prompt dynamically
-            const prompt = `
-            Analyze the historical performance of the following stocks between **${startDate}** and **${endDate}**:
-
-            - **Stocks:** ${stockList}
-
-            🔹 **Stock-Specific Analysis:**
-            - How did each stock perform during this period?
-            - Were there major **price movements, earnings surprises, or leadership changes** that affected them?
-            - How did they compare **against competitors and their sector**?
-
-            🔹 **Macroeconomic & Market Trends:**
-            - What **economic events** (interest rate changes, recessions, inflation, crises) affected stock prices during this time?
-            - Which sectors outperformed or underperformed?
-            - How did investor sentiment shift in the market?
-
-            🔹 **Investor Perception & Market Reaction:**
-            - Were these stocks considered **undervalued or overvalued** during this period?
-            - Did major institutions or hedge funds **increase or decrease holdings** in these stocks?
-            - Were there notable **media narratives or analyst ratings** influencing their price?
-
-            🔹 **Long-Term Perspective:**
-            - If an investor held these stocks **beyond ${endDate}**, how did they likely perform in the following years?
-            - What were the **key long-term trends or fundamental shifts** for these companies?
-
-            **Provide well-structured insights and reasoning rather than exact price numbers.**
-            `;
-
-            // Call OpenAI API using GPT-3.5 instead of GPT-4
-            const openaiResponse = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",  // 🔹 Switched to GPT-3.5 for faster response
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 1200, // Slightly reduced for even faster responses
-                temperature: 0.7,
-            });
-
-            const summary = openaiResponse.choices[0]?.message?.content || "No insights available.";
-            res.status(200).json({ summary });
-
-        } catch (error) {
-            console.error("Error in AI Summary API:", error);
-            res.status(500).json({ error: "Failed to generate AI summary" });
-        }
-    } else {
+    if (req.method !== "POST") {
         res.setHeader("Allow", ["POST"]);
-        res.status(405).json({ error: `Method ${req.method} not allowed` });
+        return res.status(405).json({ error: `Method ${req.method} not allowed` });
+    }
+
+    try {
+        const { stocks, startDate, endDate } = req.body;
+
+        if (!stocks || !Array.isArray(stocks) || stocks.length === 0) {
+            return res.status(400).json({ error: "Invalid or missing stock data" });
+        }
+
+        // Build dynamic stock list
+        const stockList = stocks.map(stock => stock.symbol.toUpperCase()).join(", ");
+
+        // **Enhanced Prompt for Maximum Detail**
+        const prompt = `
+Analyze the **historical performance** of the following stocks from **${startDate}** to **${endDate}**, focusing on key market factors:
+
+**Stocks:** ${stockList}
+
+🔹 **Stock-Specific Breakdown:**
+- How did each stock perform over this time period? **Were earnings stronger or weaker than expected?**
+- Identify the **most significant price movements** and the catalysts behind them (**earnings beats/misses, product launches, leadership changes, macro trends**).
+- How did each stock perform **compared to analyst estimates** and **investor expectations**? Were they bullish or bearish?
+- Did major **funds or hedge funds increase or decrease positions** during this time?
+
+🔹 **Macroeconomic & Industry Impact:**
+- How did **interest rates, inflation, GDP growth, and Federal Reserve policy** impact these stocks?
+- Were there **major regulatory shifts, supply chain disruptions, or geopolitical events** that influenced the stock price?
+- Did investor sentiment **favor or penalize these stocks** during this period?
+
+🔹 **Long-Term Market Positioning (After ${endDate}):**
+- Did these stocks **recover, continue declining, or shift direction** post-${endDate}?
+- What were the **most significant risks and opportunities** each company faced after ${endDate}?
+- **If applicable, mention major acquisitions, restructuring, or CEO changes** that shaped the company's future.
+
+🛑 **Important:** Do not be vague. Provide confident analysis. If trends or reasons are clear, state them directly. If comparisons are relevant, include them.
+        `;
+
+        // Call OpenAI API - Use GPT-3.5 for speed or GPT-4 for deeper insights
+        const openaiResponse = await openai.chat.completions.create({
+            model: "gpt-4", // Change to "gpt-3.5-turbo" for faster responses
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 1500,
+            temperature: 0.7,
+        });
+
+        const summary = openaiResponse.choices[0]?.message?.content || "No insights available.";
+        res.status(200).json({ summary });
+
+    } catch (error) {
+        console.error("Error in AI Summary API:", error);
+        res.status(500).json({ error: "Failed to generate AI summary" });
     }
 }
