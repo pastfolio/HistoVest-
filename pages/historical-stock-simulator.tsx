@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Head from "next/head";
+import StockLookup from "../components/StockLookup"; // ✅ Import Stock Lookup Component
 
 interface Stock {
   symbol: string;
@@ -28,20 +29,35 @@ export default function Simulator() {
     setStocks(updatedStocks);
   };
 
-  const removeStock = (index: number) => {
-    setStocks(stocks.filter((_, i) => i !== index));
+  const validateInputs = () => {
+    // Check if stock symbols are missing
+    if (stocks.some(stock => stock.symbol.trim() === "")) {
+      return "Please select a valid stock symbol.";
+    }
+
+    // Check for duplicate stock symbols
+    const symbols = stocks.map(stock => stock.symbol);
+    if (new Set(symbols).size !== symbols.length) {
+      return "Duplicate stock symbols detected. Please remove duplicates.";
+    }
+
+    // Check if date range is valid
+    if (new Date(startDate) >= new Date(endDate)) {
+      return "Start date must be before the end date.";
+    }
+
+    return null;
   };
 
   const calculatePortfolio = async () => {
-    setLoading(true);
-    setError(null);
-
-    const today = new Date().toISOString().split("T")[0];
-    if (endDate > today) {
-      setError("End date cannot be in the future.");
-      setLoading(false);
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
       return;
     }
+
+    setLoading(true);
+    setError(null);
 
     try {
       const response = await fetch("/api/simulator", {
@@ -54,17 +70,7 @@ export default function Simulator() {
       const result = await response.json();
       setPortfolioEndValue(parseFloat(result.endValue));
       setGrowth(result.growth);
-
-      const aiResponse = await fetch("/api/ai-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks, startDate, endDate }),
-      });
-
-      if (!aiResponse.ok) throw new Error("Failed to fetch AI summary");
-      const aiResult = await aiResponse.json();
-      setSummary(aiResult.summary);
-
+      setSummary(result.summary);
     } catch (err) {
       console.error("Error calculating portfolio:", err);
       setError("An error occurred. Please try again.");
@@ -87,30 +93,21 @@ export default function Simulator() {
         {/* STOCK INPUT SECTION */}
         <div className="mt-6">
           <h2 className="text-lg font-semibold text-[#facc15]">Configure Portfolio</h2>
+
           {stocks.map((stock, index) => (
             <div key={index} className="flex space-x-3 items-center mt-3">
-              <input
-                type="text"
-                placeholder="Stock Symbol (e.g., AAPL)"
-                value={stock.symbol}
-                onChange={(e) => handleStockChange(index, "symbol", e.target.value)}
-                className="p-2 bg-[#222] text-white border border-gray-600 w-2/3 focus:ring-2 focus:ring-[#facc15] tracking-wide"
-              />
+              <StockLookup onSelectStock={(symbol) => handleStockChange(index, "symbol", symbol)} />
+
               <input
                 type="number"
-                placeholder="0%"
+                placeholder="Percentage (e.g., 10%)"
                 value={stock.percentage}
                 onChange={(e) => handleStockChange(index, "percentage", e.target.value)}
-                className="p-2 bg-[#222] text-white border border-gray-600 w-1/4 focus:ring-2 focus:ring-[#facc15] text-center"
+                className="p-2 bg-[#222] text-white border border-gray-600 w-1/3 focus:ring-2 focus:ring-[#facc15] text-center"
               />
-              <button
-                onClick={() => removeStock(index)}
-                className="px-3 py-2 bg-red-600 text-white font-semibold transition hover:bg-red-700"
-              >
-                ✕
-              </button>
             </div>
           ))}
+
           {stocks.length < 10 && (
             <button onClick={addStock} className="mt-4 px-4 py-3 w-full bg-[#facc15] text-black font-bold hover:opacity-90 uppercase">
               + Add Stock
@@ -118,7 +115,7 @@ export default function Simulator() {
           )}
         </div>
 
-        {/* DATE SELECTION */}
+        {/* DATE SELECTION (Side by Side) */}
         <div className="mt-6">
           <h2 className="text-lg font-semibold text-[#facc15]">Select Date Range</h2>
           <div className="flex space-x-3">
@@ -137,10 +134,13 @@ export default function Simulator() {
           </div>
         </div>
 
-        {/* SHOW PORTFOLIO BUTTON WITH LOADING ANIMATION */}
-        <button onClick={calculatePortfolio} disabled={loading} className="mt-6 px-6 py-4 w-full bg-[#facc15] text-black font-bold hover:opacity-90 uppercase">
-          {loading ? "Calculating..." : "Show Portfolio"}
+        {/* CALCULATE BUTTON */}
+        <button onClick={calculatePortfolio} disabled={loading} className="mt-6 px-6 py-4 w-full bg-[#facc15] text-black font-bold uppercase hover:opacity-90">
+          {loading ? "Calculating..." : "Calculate Portfolio"}
         </button>
+
+        {/* ERROR MESSAGE */}
+        {error && <p className="mt-4 text-red-500 font-bold text-center">{error}</p>}
 
         {/* PORTFOLIO RESULTS */}
         {portfolioEndValue !== null && (
@@ -154,12 +154,10 @@ export default function Simulator() {
         {/* AI SUMMARY SECTION */}
         {summary && (
           <div className="mt-6 p-6 bg-[#222] border border-gray-700">
-            <h2 className="text-lg font-semibold text-[#facc15]">AI-Generated Insights</h2>
+            <h2 className="text-lg font-semibold text-[#facc15]">Portfolio Summary & Review</h2>
             <p className="text-gray-300 whitespace-pre-line">{summary}</p>
           </div>
         )}
-
-        {error && <p className="mt-4 text-red-500 font-bold text-center">{error}</p>}
       </div>
     </div>
   );
