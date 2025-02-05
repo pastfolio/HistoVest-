@@ -1,74 +1,44 @@
-import OpenAI from "openai";
+import axios from "axios";
+import yahooFinance from "yahoo-finance2";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const newsApiKey = process.env.NEWS_API_KEY;
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
-        res.setHeader("Allow", ["POST"]);
         return res.status(405).json({ error: `Method ${req.method} not allowed` });
     }
 
     try {
-        const { stocks, startDate, endDate } = req.body;
+        const { stock, startDate, endDate } = req.body;
 
-        if (!stocks || !Array.isArray(stocks) || stocks.length === 0) {
-            return res.status(400).json({ error: "Invalid or missing stock data" });
-        }
-
-        // Build dynamic stock list
-        const stockList = stocks.map(stock => stock.symbol.toUpperCase()).join(", ");
-
-        // AI Prompt
-        const prompt = `
-Analyze the **historical performance** of the following stocks from **${startDate}** to **${endDate}**, focusing on key market factors:
-
-**Stocks:** ${stockList}
-
-Stock-Specific Breakdown:
-- How did each stock perform over this time period? **Were earnings stronger or weaker than expected?**
-- Identify the **most significant price movements** and the catalysts behind them (**earnings beats/misses, product launches, leadership changes, macro trends**).
-- How did each stock perform **compared to analyst estimates** and **investor expectations**? Were they bullish or bearish?
-- Did major **funds or hedge funds increase or decrease positions** during this time?
-
-Macroeconomic & Industry Impact:
-- How did **interest rates, inflation, GDP growth, and Federal Reserve policy** impact these stocks?
-- Were there **major regulatory shifts, supply chain disruptions, or geopolitical events** that influenced the stock price?
-- Did investor sentiment **favor or penalize these stocks** during this period?
-
-Long-Term Market Positioning (After ${endDate}):
-- Did these stocks **recover, continue declining, or shift direction** post-${endDate}?
-- What were the **most significant risks and opportunities** each company faced after ${endDate}?
-- **If applicable, mention major acquisitions, restructuring, or CEO changes** that shaped the company's future.
-
-🛑 **Important:** Do not be vague. Provide confident analysis. If trends or reasons are clear, state them directly. If comparisons are relevant, include them.
-        `;
-
-        // Call OpenAI API
-        let openaiResponse = await openai.chat.completions.create({
-            model: "gpt-4", // Change to "gpt-3.5-turbo" for faster responses
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 1500,
-            temperature: 0.7,
+        const stockData = await yahooFinance.chart(stock, {
+            period1: startDate,
+            period2: endDate,
+            interval: "1d",
         });
 
-        let summary = openaiResponse.choices[0]?.message?.content || "";
+        const startPrice = stockData.quotes[0].adjclose;
+        const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
 
-        // **Fallback Handling - Retry if AI gives a weak response**
-        if (!summary || summary.includes("I'm sorry") || summary.length < 100) {
-            console.warn("AI returned a weak response. Retrying...");
-            openaiResponse = await openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 1500,
-                temperature: 0.7,
-            });
-            summary = openaiResponse.choices[0]?.message?.content || "No insights available.";
-        }
+        const earnings = await yahooFinance.quoteSummary(stock, { modules: ["earnings"] });
+        const eps = earnings.earnings?.earningsChart?.quarterly?.pop()?.actual || "N/A";
 
-        res.status(200).json({ summary });
+        const newsResponse = await axios.get(
+            `https://newsapi.org/v2/everything?q=${stock}&apiKey=${newsApiKey}`
+        );
+
+        const stockAnalysisPrompt = `
+            **Stock: ${stock} (${startDate} - ${endDate})**  
+            - Price change: $${startPrice} → $${endPrice}  
+            - Last Earnings: EPS ${eps}  
+            - News Impacting Price: ${newsResponse.data.articles[0]?.title || "N/A"}  
+        `;
+
+        res.status(200).json({ summary: stockAnalysisPrompt });
 
     } catch (error) {
-        console.error("Error in AI Summary API:", error);
+        console.error("Error in AI summary API:", error);
         res.status(500).json({ error: "Failed to generate AI summary" });
     }
 }

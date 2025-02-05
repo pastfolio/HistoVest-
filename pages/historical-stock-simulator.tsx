@@ -16,6 +16,7 @@ export default function Simulator() {
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
   const [growth, setGrowth] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  const [apiMessage, setApiMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,18 +31,15 @@ export default function Simulator() {
   };
 
   const validateInputs = () => {
-    // Check if stock symbols are missing
     if (stocks.some(stock => stock.symbol.trim() === "")) {
       return "Please select a valid stock symbol.";
     }
 
-    // Check for duplicate stock symbols
     const symbols = stocks.map(stock => stock.symbol);
     if (new Set(symbols).size !== symbols.length) {
       return "Duplicate stock symbols detected. Please remove duplicates.";
     }
 
-    // Check if date range is valid
     if (new Date(startDate) >= new Date(endDate)) {
       return "Start date must be before the end date.";
     }
@@ -58,6 +56,7 @@ export default function Simulator() {
 
     setLoading(true);
     setError(null);
+    setApiMessage(null);
 
     try {
       const response = await fetch("/api/simulator", {
@@ -67,10 +66,14 @@ export default function Simulator() {
       });
 
       if (!response.ok) throw new Error("Failed to calculate portfolio");
+
       const result = await response.json();
+
       setPortfolioEndValue(parseFloat(result.endValue));
       setGrowth(result.growth);
       setSummary(result.summary);
+      setApiMessage(result.message); // ✅ Show missing stock warnings
+
     } catch (err) {
       console.error("Error calculating portfolio:", err);
       setError("An error occurred. Please try again.");
@@ -141,6 +144,9 @@ export default function Simulator() {
 
         {/* ERROR MESSAGE */}
         {error && <p className="mt-4 text-red-500 font-bold text-center">{error}</p>}
+
+        {/* WARNING MESSAGE FOR MISSING STOCKS */}
+        {apiMessage && <p className="mt-4 text-yellow-400 font-bold text-center">{apiMessage}</p>}
 
         {/* PORTFOLIO RESULTS */}
         {portfolioEndValue !== null && (
