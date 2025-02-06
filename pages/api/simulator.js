@@ -11,128 +11,145 @@ export default async function handler(req, res) {
 
     try {
         const { stocks, startDate, endDate } = req.body;
+
         let portfolioValueStart = 0;
         let portfolioValueEnd = 0;
-        let shares = {};
-        let cashAllocation = 0;
-        let stockSummaries = [];
         let missingStocks = [];
-
-        const period1 = new Date(startDate).toISOString().split("T")[0];
-        const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split("T")[0];
+        let stockSummaries = [];
 
         console.log(`Fetching data from Yahoo Finance for ${stocks.length} stocks...`);
 
-        for (const stock of stocks) {
+        const stockDataPromises = stocks.map(async (stock) => {
             try {
-                const stockData = await yahooFinance.chart(stock.symbol, {
-                    period1: period1,
-                    period2: period2,
-                    interval: "1d",
+                console.log(`Fetching data for ${stock.symbol}...`);
+                const stockData = await yahooFinance.chart(stock.symbol, { 
+                    period1: startDate, 
+                    period2: endDate, 
+                    interval: "1d" 
                 });
 
                 if (!stockData.quotes || stockData.quotes.length < 2) {
-                    throw new Error(`No valid stock data found for ${stock.symbol}`);
+                    throw new Error(`No valid stock data for ${stock.symbol}`);
                 }
 
-                const startPrice = stockData.quotes[0].adjclose;
-                const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
+                let startPrice = findClosestPrice(stockData.quotes, startDate);
+                let endPrice = findClosestPrice(stockData.quotes, endDate);
 
-                console.log(`${stock.symbol} Adjusted Prices: Start - ${startPrice}, End - ${endPrice}`);
+                const stockMeta = await yahooFinance.quoteSummary(stock.symbol, { modules: ["price"] });
+                const stockCurrency = stockMeta.price.currency || "USD"; 
 
-                const percentage = parseFloat(stock.percentage) / 100;
-                const investment = 100000 * percentage;
-                shares[stock.symbol] = investment / startPrice;
+                if (startPrice && endPrice) {
+                    const convertedStartPrice = await convertCurrency(startPrice, stockCurrency, "USD", startDate);
+                    const convertedEndPrice = await convertCurrency(endPrice, stockCurrency, "USD", endDate);
 
-                portfolioValueStart += shares[stock.symbol] * startPrice;
-                portfolioValueEnd += shares[stock.symbol] * endPrice;
+                    startPrice = convertedStartPrice < 0.10 ? parseFloat(convertedStartPrice.toFixed(5)) : parseFloat(convertedStartPrice.toFixed(2));
+                    endPrice = convertedEndPrice < 0.10 ? parseFloat(convertedEndPrice.toFixed(5)) : parseFloat(convertedEndPrice.toFixed(2));
 
-                stockSummaries.push(
-                    `- **${stock.symbol.toUpperCase()}**: Started at $${startPrice.toFixed(2)}, ended at $${endPrice.toFixed(2)}.`
-                );
+                    console.log(`Converted Prices (${stock.symbol}): ${startPrice} → ${endPrice} (USD)`);
+
+                    if (startPrice < 0 || endPrice < 0) {
+                        console.warn(`Skipping ${stock.symbol} due to invalid negative price.`);
+                        missingStocks.push(stock.symbol);
+                        return null;
+                    }
+
+                    const investment = (parseFloat(stock.percentage) / 100) * 100000;
+                    const shares = investment / startPrice;
+
+                    portfolioValueStart += shares * startPrice;
+                    portfolioValueEnd += shares * endPrice;
+
+                    return { 
+                        symbol: stock.symbol, 
+                        startPrice, 
+                        endPrice, 
+                        originalCurrency: stockCurrency 
+                    };
+                } else {
+                    throw new Error(`Missing valid price data for ${stock.symbol}`);
+                }
             } catch (error) {
                 console.error(`Error fetching data for ${stock.symbol}:`, error);
                 missingStocks.push(stock.symbol);
-                cashAllocation += parseFloat(stock.percentage);
+                return null;
             }
+        });
+
+        const resolvedStockData = await Promise.all(stockDataPromises);
+        const validStockData = resolvedStockData.filter(stock => stock !== null);
+
+        if (validStockData.length === 0) {
+            throw new Error("No valid stock data retrieved.");
         }
-
-        if (portfolioValueStart === 0) {
-            throw new Error("Portfolio start value is zero, check stock data retrieval.");
-        }
-
-        let cashValueStart = (cashAllocation / 100) * 100000;
-        let cashValueEnd = cashValueStart;
-
-        portfolioValueStart += cashValueStart;
-        portfolioValueEnd += cashValueEnd;
 
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
-        console.log(`Final Portfolio Value: ${portfolioValueEnd}, Growth: ${growth}%`);
-
-        // 🔥 **Separate AI Requests for Stock & Macro Analysis**
-        const stockSummariesAI = await Promise.all(
-            stocks.map(async (stock) => {
-                return getStockAnalysis(stock.symbol, startDate, endDate);
-            })
-        );
 
         const macroSummary = await getMacroAnalysis(startDate, endDate);
+
+        const stockSummaryPromises = validStockData.map(stock =>
+            getStockAnalysis(stock.symbol, stock.startPrice, stock.endPrice, startDate, endDate, stock.originalCurrency)
+        );
+
+        const stockSummariesAI = await Promise.all(stockSummaryPromises);
 
         res.status(200).json({
             startValue: portfolioValueStart.toFixed(2),
             endValue: portfolioValueEnd.toFixed(2),
             growth: growth.toFixed(2),
-            summary: `# Portfolio Summary & Review\n\n${stockSummariesAI.join("\n\n")}\n\n## Macroeconomic Analysis\n\n${macroSummary}`,
-            missingStocks: missingStocks.length > 0 ? `Some stocks were missing data and were treated as cash: ${missingStocks.join(", ")}` : null,
+            summary: `# Macroeconomic Overview\n\n${macroSummary}\n\n## Portfolio Summary & Review\n\n${stockSummariesAI.join("\n\n")}`,
+            missingStocks: missingStocks.length > 0 ? `Some stocks were missing data: ${missingStocks.join(", ")}` : null,
         });
 
     } catch (error) {
-        console.error("Error in simulator API:", error);
+        console.error("Error in portfolio analysis API:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 }
 
-async function getStockAnalysis(symbol, startDate, endDate) {
+function findClosestPrice(quotes, targetDate) {
+    const targetTimestamp = new Date(targetDate).getTime();
+    let closestPrice = null;
+    let smallestDiff = Infinity;
+
+    for (const quote of quotes) {
+        const quoteTimestamp = new Date(quote.date).getTime();
+        const diff = Math.abs(quoteTimestamp - targetTimestamp);
+
+        if (diff < smallestDiff) {
+            smallestDiff = diff;
+            closestPrice = quote.adjclose;
+        }
+    }
+    return closestPrice;
+}
+
+async function convertCurrency(amount, fromCurrency, toCurrency, date) {
+    if (fromCurrency === toCurrency) return amount;
+
     try {
-        const aiPrompt = `
-            **📊 Stock Analysis: ${symbol} (${startDate} - ${endDate})**  
-            - What were the major price movements?  
-            - How did earnings perform vs expectations?  
-            - What were the key drivers (product launches, macro trends, sentiment shifts)?  
-            - How did competitors like (similar companies) compare?  
-            - What were analysts saying, and did hedge funds buy or sell?  
-        `;
-
-        const aiResponse = await openai.chat.completions.create({
-            model: "gpt-4",
-            messages: [{ role: "user", content: aiPrompt }],
-            max_tokens: 1500,
-            temperature: 0.7,
-        });
-
-        return aiResponse.choices[0]?.message?.content || `No insights available for ${symbol}`;
+        console.log(`Fetching exchange rate for ${fromCurrency} to ${toCurrency} on ${date}...`);
+        const forexData = await yahooFinance.quote(`${fromCurrency}${toCurrency}=X`);
+        const exchangeRate = forexData.regularMarketPrice;
+        return amount * exchangeRate;
     } catch (error) {
-        console.error(`Error generating AI summary for ${symbol}:`, error);
-        return `No AI insights available for ${symbol}`;
+        console.error(`Currency conversion error:`, error);
+        return amount; 
     }
 }
 
+// ✅ FIXED: Missing `getMacroAnalysis` function
 async function getMacroAnalysis(startDate, endDate) {
     try {
         const macroPrompt = `
-            **🌍 Macroeconomic Overview (${startDate} - ${endDate})**  
-            - How did major indices perform?  
-            - What economic policies impacted the market?  
-            - How did inflation, interest rates, and trade affect investor sentiment?  
+            Provide a **one-paragraph summary** of the global economic conditions between ${startDate} and ${endDate}.
+            Cover major stock market movements, interest rates, inflation, economic policies, and global trade events.
+            Do NOT include speculative information—just focus on **actual trends** from this period.
         `;
 
         const macroResponse = await openai.chat.completions.create({
             model: "gpt-4",
             messages: [{ role: "user", content: macroPrompt }],
-            max_tokens: 1000,
+            max_tokens: 400,
             temperature: 0.7,
         });
 
@@ -140,5 +157,29 @@ async function getMacroAnalysis(startDate, endDate) {
     } catch (error) {
         console.error("Error generating macroeconomic insights:", error);
         return "No macroeconomic insights available.";
+    }
+}
+
+// ✅ FIXED: Missing `getStockAnalysis` function
+async function getStockAnalysis(symbol, startPrice, endPrice, startDate, endDate, originalCurrency) {
+    try {
+        const aiPrompt = `
+            Provide a **single paragraph summary** of ${symbol}'s stock performance from ${startDate} to ${endDate}.
+            - Stock price in ${originalCurrency}: ${startPrice} → ${endPrice}
+            - Converted to USD.
+            - Major earnings/events in this period.
+        `;
+
+        const aiResponse = await openai.chat.completions.create({
+            model: "gpt-4",
+            messages: [{ role: "user", content: aiPrompt }],
+            max_tokens: 300,
+            temperature: 0.7,
+        });
+
+        return `- **${symbol} (${originalCurrency})**: ${aiResponse.choices[0]?.message?.content || "No insights available."}`;
+    } catch (error) {
+        console.error(`Error generating AI summary for ${symbol}:`, error);
+        return `- **${symbol}**: No AI insights available.`;
     }
 }

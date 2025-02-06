@@ -18,8 +18,8 @@ export default async function handler(req, res) {
             interval: "1d",
         });
 
-        const startPrice = stockData.quotes[0].adjclose;
-        const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
+        const startPrice = stockData.quotes[0]?.adjclose || "N/A";
+        const endPrice = stockData.quotes[stockData.quotes.length - 1]?.adjclose || "N/A";
 
         const earnings = await yahooFinance.quoteSummary(stock, { modules: ["earnings"] });
         const eps = earnings.earnings?.earningsChart?.quarterly?.pop()?.actual || "N/A";
@@ -28,14 +28,29 @@ export default async function handler(req, res) {
             `https://newsapi.org/v2/everything?q=${stock}&apiKey=${newsApiKey}`
         );
 
+        const newsHeadline = newsResponse.data.articles[0]?.title || "No major news.";
+
         const stockAnalysisPrompt = `
-            **Stock: ${stock} (${startDate} - ${endDate})**  
-            - Price change: $${startPrice} → $${endPrice}  
-            - Last Earnings: EPS ${eps}  
-            - News Impacting Price: ${newsResponse.data.articles[0]?.title || "N/A"}  
+            Provide a **one-paragraph summary** of ${stock} (${startDate} - ${endDate}).
+            - Stock price change: $${startPrice} → $${endPrice}
+            - Last reported earnings: EPS ${eps}
+            - Major news impact: ${newsHeadline}
         `;
 
-        res.status(200).json({ summary: stockAnalysisPrompt });
+        const aiResponse = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+                model: "gpt-4",
+                messages: [{ role: "user", content: stockAnalysisPrompt }],
+                max_tokens: 300,
+                temperature: 0.7,
+            },
+            {
+                headers: { Authorization: `Bearer ${openaiApiKey}`, "Content-Type": "application/json" },
+            }
+        );
+
+        res.status(200).json({ summary: aiResponse.data.choices[0]?.message?.content || "No insights available." });
 
     } catch (error) {
         console.error("Error in AI summary API:", error);
