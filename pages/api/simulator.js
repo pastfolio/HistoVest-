@@ -14,10 +14,22 @@ export default async function handler(req, res) {
 
         let portfolioValueStart = 0;
         let portfolioValueEnd = 0;
+<<<<<<< HEAD
+        let missingStocks = [];
+        let stockSummaries = [];
+=======
+        let shares = {};
+        let cashAllocation = 0;
         let missingStocks = [];
         let stockSummaries = [];
 
-        console.log(`Fetching data from Yahoo Finance for ${stocks.length} stocks...`);
+        const period1 = new Date(startDate).toISOString().split("T")[0];
+        const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0];
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
+
+        console.log(`📊 Fetching data for ${stocks.length} stocks...`);
 
         const stockDataPromises = stocks.map(async (stock) => {
             try {
@@ -42,11 +54,16 @@ export default async function handler(req, res) {
                     const convertedStartPrice = await convertCurrency(startPrice, stockCurrency, "USD", startDate);
                     const convertedEndPrice = await convertCurrency(endPrice, stockCurrency, "USD", endDate);
 
+<<<<<<< HEAD
                     startPrice = convertedStartPrice < 0.10 ? parseFloat(convertedStartPrice.toFixed(5)) : parseFloat(convertedStartPrice.toFixed(2));
                     endPrice = convertedEndPrice < 0.10 ? parseFloat(convertedEndPrice.toFixed(5)) : parseFloat(convertedEndPrice.toFixed(2));
+=======
+                console.log(`${stock.symbol} Prices: Start - $${startPrice}, End - $${endPrice}`);
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
 
                     console.log(`Converted Prices (${stock.symbol}): ${startPrice} → ${endPrice} (USD)`);
 
+<<<<<<< HEAD
                     if (startPrice < 0 || endPrice < 0) {
                         console.warn(`Skipping ${stock.symbol} due to invalid negative price.`);
                         missingStocks.push(stock.symbol);
@@ -68,8 +85,12 @@ export default async function handler(req, res) {
                 } else {
                     throw new Error(`Missing valid price data for ${stock.symbol}`);
                 }
+=======
+                portfolioValueStart += shares[stock.symbol] * startPrice;
+                portfolioValueEnd += shares[stock.symbol] * endPrice;
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
             } catch (error) {
-                console.error(`Error fetching data for ${stock.symbol}:`, error);
+                console.error(`❌ Error fetching data for ${stock.symbol}:`, error);
                 missingStocks.push(stock.symbol);
                 return null;
             }
@@ -83,11 +104,19 @@ export default async function handler(req, res) {
         }
 
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
+<<<<<<< HEAD
 
         const macroSummary = await getMacroAnalysis(startDate, endDate);
 
         const stockSummaryPromises = validStockData.map(stock =>
             getStockAnalysis(stock.symbol, stock.startPrice, stock.endPrice, startDate, endDate, stock.originalCurrency)
+=======
+        console.log(`✅ Final Portfolio Value: $${portfolioValueEnd.toFixed(2)}, Growth: ${growth.toFixed(2)}%`);
+
+        // 🔥 AI Stock & Macro Analysis
+        const stockSummariesAI = await Promise.all(
+            stocks.map(async (stock) => getStockAnalysis(stock.symbol, startDate, endDate))
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
         );
 
         const stockSummariesAI = await Promise.all(stockSummaryPromises);
@@ -96,16 +125,26 @@ export default async function handler(req, res) {
             startValue: portfolioValueStart.toFixed(2),
             endValue: portfolioValueEnd.toFixed(2),
             growth: growth.toFixed(2),
+<<<<<<< HEAD
             summary: `# Macroeconomic Overview\n\n${macroSummary}\n\n## Portfolio Summary & Review\n\n${stockSummariesAI.join("\n\n")}`,
             missingStocks: missingStocks.length > 0 ? `Some stocks were missing data: ${missingStocks.join(", ")}` : null,
         });
 
     } catch (error) {
         console.error("Error in portfolio analysis API:", error);
+=======
+            summary: `# Market Overview\n\n${macroSummary}\n\n# Company Insights\n\n${stockSummariesAI.join("\n\n")}`,
+            missingStocks: missingStocks.length > 0 ? `Some stocks were missing data and were treated as cash: ${missingStocks.join(", ")}` : null,
+        });
+
+    } catch (error) {
+        console.error("❌ Error in simulator API:", error);
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
         res.status(500).json({ error: "Internal server error" });
     }
 }
 
+<<<<<<< HEAD
 function findClosestPrice(quotes, targetDate) {
     const targetTimestamp = new Date(targetDate).getTime();
     let closestPrice = null;
@@ -125,6 +164,22 @@ function findClosestPrice(quotes, targetDate) {
 
 async function convertCurrency(amount, fromCurrency, toCurrency, date) {
     if (fromCurrency === toCurrency) return amount;
+=======
+// ✅ New Stock Analysis Function (Compact & Data-Driven)
+async function getStockAnalysis(symbol, startDate, endDate) {
+    try {
+        const aiPrompt = `
+            **📊 ${symbol} Stock Analysis (${startDate} - ${endDate})**  
+            ${symbol} saw price fluctuations influenced by earnings, investor sentiment, and broader market conditions. Revenue changed by X% and net income by Y%, with key earnings beats or misses highlighting company strengths or weaknesses. Analyst ratings reflected bullish or bearish sentiment, while hedge fund activity showed increased or decreased holdings. Insider transactions, including major buying or selling, indicated executive confidence or concerns. ${symbol} faced challenges such as regulatory changes, supply chain issues, or competitive threats. ${await getAcquisitionDetails(symbol)}  
+        `;
+
+        const aiResponse = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: aiPrompt }],
+            max_tokens: 1000,
+            temperature: 0.7,
+        });
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
 
     try {
         console.log(`Fetching exchange rate for ${fromCurrency} to ${toCurrency} on ${date}...`);
@@ -132,6 +187,7 @@ async function convertCurrency(amount, fromCurrency, toCurrency, date) {
         const exchangeRate = forexData.regularMarketPrice;
         return amount * exchangeRate;
     } catch (error) {
+<<<<<<< HEAD
         console.error(`Currency conversion error:`, error);
         return amount; 
     }
@@ -144,10 +200,46 @@ async function getMacroAnalysis(startDate, endDate) {
             Provide a **one-paragraph summary** of the global economic conditions between ${startDate} and ${endDate}.
             Cover major stock market movements, interest rates, inflation, economic policies, and global trade events.
             Do NOT include speculative information—just focus on **actual trends** from this period.
+=======
+        console.error(`❌ Error generating AI summary for ${symbol}:`, error);
+        return `No AI insights available for ${symbol}`;
+    }
+}
+
+// ✅ Fetches Acquisition Details (Only Adds If Relevant)
+async function getAcquisitionDetails(symbol) {
+    try {
+        const acquisitionPrompt = `List any significant acquisitions or mergers ${symbol} was involved in between the specified dates. If none, return an empty string.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: acquisitionPrompt }],
+            max_tokens: 500,
+            temperature: 0.7,
+        });
+
+        const content = response.choices[0]?.message?.content || "";
+        return content ? `During this period, ${symbol} acquired ${content}.` : "";
+    } catch (error) {
+        console.error(`❌ Error retrieving acquisition data for ${symbol}:`, error);
+        return "";
+    }
+}
+
+// ✅ Macro Analysis (Still Placed at the Top)
+async function getMacroAnalysis(startDate, endDate) {
+    try {
+        const macroPrompt = `
+            **🌍 Macroeconomic Overview (${startDate} - ${endDate})**  
+            - **Market Performance:** How did major indices (S&P 500, Dow, Nasdaq) perform?  
+            - **Monetary & Fiscal Policies:** How did central bank policies (interest rates, stimulus) affect investment trends?  
+            - **Global Events:** What economic and geopolitical developments shaped market sentiment?  
+            - **Sector Trends:** Which industries thrived, and which faced headwinds?  
+>>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
         `;
 
         const macroResponse = await openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: macroPrompt }],
             max_tokens: 400,
             temperature: 0.7,
@@ -155,7 +247,7 @@ async function getMacroAnalysis(startDate, endDate) {
 
         return macroResponse.choices[0]?.message?.content || "No macroeconomic insights available.";
     } catch (error) {
-        console.error("Error generating macroeconomic insights:", error);
+        console.error("❌ Error generating macroeconomic insights:", error);
         return "No macroeconomic insights available.";
     }
 }
