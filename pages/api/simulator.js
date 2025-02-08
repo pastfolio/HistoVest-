@@ -11,14 +11,8 @@ export default async function handler(req, res) {
 
     try {
         const { stocks, startDate, endDate } = req.body;
-
         let portfolioValueStart = 0;
         let portfolioValueEnd = 0;
-<<<<<<< HEAD
-        let missingStocks = [];
-        let stockSummaries = [];
-=======
-        let shares = {};
         let cashAllocation = 0;
         let missingStocks = [];
         let stockSummaries = [];
@@ -27,150 +21,91 @@ export default async function handler(req, res) {
         const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000)
             .toISOString()
             .split("T")[0];
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
 
         console.log(`📊 Fetching data for ${stocks.length} stocks...`);
 
-        const stockDataPromises = stocks.map(async (stock) => {
+        for (const stock of stocks) {
             try {
-                console.log(`Fetching data for ${stock.symbol}...`);
-                const stockData = await yahooFinance.chart(stock.symbol, { 
-                    period1: startDate, 
-                    period2: endDate, 
-                    interval: "1d" 
+                const stockData = await yahooFinance.chart(stock.symbol, {
+                    period1: period1,
+                    period2: period2,
+                    interval: "1d",
                 });
 
                 if (!stockData.quotes || stockData.quotes.length < 2) {
-                    throw new Error(`No valid stock data for ${stock.symbol}`);
+                    throw new Error(`No valid stock data found for ${stock.symbol}`);
                 }
 
-                let startPrice = findClosestPrice(stockData.quotes, startDate);
-                let endPrice = findClosestPrice(stockData.quotes, endDate);
+                const startPrice = stockData.quotes[0].adjclose;
+                const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
 
-                const stockMeta = await yahooFinance.quoteSummary(stock.symbol, { modules: ["price"] });
-                const stockCurrency = stockMeta.price.currency || "USD"; 
-
-                if (startPrice && endPrice) {
-                    const convertedStartPrice = await convertCurrency(startPrice, stockCurrency, "USD", startDate);
-                    const convertedEndPrice = await convertCurrency(endPrice, stockCurrency, "USD", endDate);
-
-<<<<<<< HEAD
-                    startPrice = convertedStartPrice < 0.10 ? parseFloat(convertedStartPrice.toFixed(5)) : parseFloat(convertedStartPrice.toFixed(2));
-                    endPrice = convertedEndPrice < 0.10 ? parseFloat(convertedEndPrice.toFixed(5)) : parseFloat(convertedEndPrice.toFixed(2));
-=======
                 console.log(`${stock.symbol} Prices: Start - $${startPrice}, End - $${endPrice}`);
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
 
-                    console.log(`Converted Prices (${stock.symbol}): ${startPrice} → ${endPrice} (USD)`);
+                const percentage = parseFloat(stock.percentage) / 100;
+                const investment = 100000 * percentage;
+                const shares = investment / startPrice;
 
-<<<<<<< HEAD
-                    if (startPrice < 0 || endPrice < 0) {
-                        console.warn(`Skipping ${stock.symbol} due to invalid negative price.`);
-                        missingStocks.push(stock.symbol);
-                        return null;
-                    }
+                portfolioValueStart += shares * startPrice;
+                portfolioValueEnd += shares * endPrice;
 
-                    const investment = (parseFloat(stock.percentage) / 100) * 100000;
-                    const shares = investment / startPrice;
+                // Add AI-generated stock analysis
+                const stockAnalysis = await getStockAnalysis(stock.symbol, startDate, endDate);
+                stockSummaries.push(stockAnalysis);
 
-                    portfolioValueStart += shares * startPrice;
-                    portfolioValueEnd += shares * endPrice;
-
-                    return { 
-                        symbol: stock.symbol, 
-                        startPrice, 
-                        endPrice, 
-                        originalCurrency: stockCurrency 
-                    };
-                } else {
-                    throw new Error(`Missing valid price data for ${stock.symbol}`);
-                }
-=======
-                portfolioValueStart += shares[stock.symbol] * startPrice;
-                portfolioValueEnd += shares[stock.symbol] * endPrice;
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
             } catch (error) {
                 console.error(`❌ Error fetching data for ${stock.symbol}:`, error);
                 missingStocks.push(stock.symbol);
-                return null;
+                cashAllocation += parseFloat(stock.percentage);
             }
-        });
-
-        const resolvedStockData = await Promise.all(stockDataPromises);
-        const validStockData = resolvedStockData.filter(stock => stock !== null);
-
-        if (validStockData.length === 0) {
-            throw new Error("No valid stock data retrieved.");
         }
 
+        if (portfolioValueStart === 0) {
+            throw new Error("Portfolio start value is zero, check stock data retrieval.");
+        }
+
+        let cashValueStart = (cashAllocation / 100) * 100000;
+        let cashValueEnd = cashValueStart;
+
+        portfolioValueStart += cashValueStart;
+        portfolioValueEnd += cashValueEnd;
+
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
-<<<<<<< HEAD
-
-        const macroSummary = await getMacroAnalysis(startDate, endDate);
-
-        const stockSummaryPromises = validStockData.map(stock =>
-            getStockAnalysis(stock.symbol, stock.startPrice, stock.endPrice, startDate, endDate, stock.originalCurrency)
-=======
         console.log(`✅ Final Portfolio Value: $${portfolioValueEnd.toFixed(2)}, Growth: ${growth.toFixed(2)}%`);
 
-        // 🔥 AI Stock & Macro Analysis
-        const stockSummariesAI = await Promise.all(
-            stocks.map(async (stock) => getStockAnalysis(stock.symbol, startDate, endDate))
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
-        );
-
-        const stockSummariesAI = await Promise.all(stockSummaryPromises);
+        // 🔥 AI Market Overview
+        const macroSummary = await getMacroAnalysis(startDate, endDate);
 
         res.status(200).json({
             startValue: portfolioValueStart.toFixed(2),
             endValue: portfolioValueEnd.toFixed(2),
             growth: growth.toFixed(2),
-<<<<<<< HEAD
-            summary: `# Macroeconomic Overview\n\n${macroSummary}\n\n## Portfolio Summary & Review\n\n${stockSummariesAI.join("\n\n")}`,
-            missingStocks: missingStocks.length > 0 ? `Some stocks were missing data: ${missingStocks.join(", ")}` : null,
-        });
-
-    } catch (error) {
-        console.error("Error in portfolio analysis API:", error);
-=======
-            summary: `# Market Overview\n\n${macroSummary}\n\n# Company Insights\n\n${stockSummariesAI.join("\n\n")}`,
+            summary: `# Market Overview\n\n${macroSummary}\n\n# Company Insights\n\n${stockSummaries.join("\n\n")}`,
             missingStocks: missingStocks.length > 0 ? `Some stocks were missing data and were treated as cash: ${missingStocks.join(", ")}` : null,
         });
 
     } catch (error) {
         console.error("❌ Error in simulator API:", error);
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
         res.status(500).json({ error: "Internal server error" });
     }
 }
 
-<<<<<<< HEAD
-function findClosestPrice(quotes, targetDate) {
-    const targetTimestamp = new Date(targetDate).getTime();
-    let closestPrice = null;
-    let smallestDiff = Infinity;
-
-    for (const quote of quotes) {
-        const quoteTimestamp = new Date(quote.date).getTime();
-        const diff = Math.abs(quoteTimestamp - targetTimestamp);
-
-        if (diff < smallestDiff) {
-            smallestDiff = diff;
-            closestPrice = quote.adjclose;
-        }
-    }
-    return closestPrice;
-}
-
-async function convertCurrency(amount, fromCurrency, toCurrency, date) {
-    if (fromCurrency === toCurrency) return amount;
-=======
-// ✅ New Stock Analysis Function (Compact & Data-Driven)
+// ✅ **Updated AI Analysis for Stocks**
 async function getStockAnalysis(symbol, startDate, endDate) {
     try {
+        const acquisitions = await getAcquisitionDetails(symbol, startDate, endDate);
+
         const aiPrompt = `
-            **📊 ${symbol} Stock Analysis (${startDate} - ${endDate})**  
-            ${symbol} saw price fluctuations influenced by earnings, investor sentiment, and broader market conditions. Revenue changed by X% and net income by Y%, with key earnings beats or misses highlighting company strengths or weaknesses. Analyst ratings reflected bullish or bearish sentiment, while hedge fund activity showed increased or decreased holdings. Insider transactions, including major buying or selling, indicated executive confidence or concerns. ${symbol} faced challenges such as regulatory changes, supply chain issues, or competitive threats. ${await getAcquisitionDetails(symbol)}  
+        Analyze ${symbol}'s stock performance from ${startDate} to ${endDate}. Provide a clear, natural-flowing summary covering:
+        - Earnings performance, including revenue and net income changes, and whether results beat or missed expectations.
+        - Major company developments, including key product launches, business expansions, or leadership changes.
+        - Market sentiment, including analyst upgrades/downgrades and hedge fund movements.
+        - Insider transactions and how they reflect confidence or uncertainty in the stock.
+        - Strategic acquisitions during this time, if applicable: ${acquisitions || "None reported"}.
+        - Dividend payouts, if any, and their impact on investor sentiment.
+        - Stock performance, including its price change and how it compared to competitors and the broader market.
+        - Key risks and challenges that affected the company during this period.
+
+        **Write the response in clear, structured paragraphs, ensuring smooth transitions between topics. Avoid bullet points.**
         `;
 
         const aiResponse = await openai.chat.completions.create({
@@ -179,37 +114,18 @@ async function getStockAnalysis(symbol, startDate, endDate) {
             max_tokens: 1000,
             temperature: 0.7,
         });
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
 
-    try {
-        console.log(`Fetching exchange rate for ${fromCurrency} to ${toCurrency} on ${date}...`);
-        const forexData = await yahooFinance.quote(`${fromCurrency}${toCurrency}=X`);
-        const exchangeRate = forexData.regularMarketPrice;
-        return amount * exchangeRate;
+        return aiResponse.choices[0]?.message?.content || `No insights available for ${symbol}`;
     } catch (error) {
-<<<<<<< HEAD
-        console.error(`Currency conversion error:`, error);
-        return amount; 
-    }
-}
-
-// ✅ FIXED: Missing `getMacroAnalysis` function
-async function getMacroAnalysis(startDate, endDate) {
-    try {
-        const macroPrompt = `
-            Provide a **one-paragraph summary** of the global economic conditions between ${startDate} and ${endDate}.
-            Cover major stock market movements, interest rates, inflation, economic policies, and global trade events.
-            Do NOT include speculative information—just focus on **actual trends** from this period.
-=======
         console.error(`❌ Error generating AI summary for ${symbol}:`, error);
         return `No AI insights available for ${symbol}`;
     }
 }
 
-// ✅ Fetches Acquisition Details (Only Adds If Relevant)
-async function getAcquisitionDetails(symbol) {
+// ✅ **Filter Acquisitions by Date**
+async function getAcquisitionDetails(symbol, startDate, endDate) {
     try {
-        const acquisitionPrompt = `List any significant acquisitions or mergers ${symbol} was involved in between the specified dates. If none, return an empty string.`;
+        const acquisitionPrompt = `List only significant acquisitions or mergers that ${symbol} completed between ${startDate} and ${endDate}. If none, return an empty string.`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
@@ -226,22 +142,23 @@ async function getAcquisitionDetails(symbol) {
     }
 }
 
-// ✅ Macro Analysis (Still Placed at the Top)
+// ✅ **AI Market Overview**
 async function getMacroAnalysis(startDate, endDate) {
     try {
         const macroPrompt = `
-            **🌍 Macroeconomic Overview (${startDate} - ${endDate})**  
-            - **Market Performance:** How did major indices (S&P 500, Dow, Nasdaq) perform?  
-            - **Monetary & Fiscal Policies:** How did central bank policies (interest rates, stimulus) affect investment trends?  
-            - **Global Events:** What economic and geopolitical developments shaped market sentiment?  
-            - **Sector Trends:** Which industries thrived, and which faced headwinds?  
->>>>>>> 084ca1b (Efficient GPT-3.5 Implemented to Portfolio Summary)
+            Provide a structured market analysis for the period from ${startDate} to ${endDate}. Cover:
+            - Performance of major indices (S&P 500, Dow, Nasdaq) and key stock market trends.
+            - Monetary and fiscal policies, including interest rates and economic stimulus measures.
+            - Global events that shaped market movements.
+            - Sector performance, highlighting industries that thrived or struggled.
+
+            **Write in clear, concise paragraphs. Avoid bullet points.**
         `;
 
         const macroResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: macroPrompt }],
-            max_tokens: 400,
+            max_tokens: 1000,
             temperature: 0.7,
         });
 
@@ -249,29 +166,5 @@ async function getMacroAnalysis(startDate, endDate) {
     } catch (error) {
         console.error("❌ Error generating macroeconomic insights:", error);
         return "No macroeconomic insights available.";
-    }
-}
-
-// ✅ FIXED: Missing `getStockAnalysis` function
-async function getStockAnalysis(symbol, startPrice, endPrice, startDate, endDate, originalCurrency) {
-    try {
-        const aiPrompt = `
-            Provide a **single paragraph summary** of ${symbol}'s stock performance from ${startDate} to ${endDate}.
-            - Stock price in ${originalCurrency}: ${startPrice} → ${endPrice}
-            - Converted to USD.
-            - Major earnings/events in this period.
-        `;
-
-        const aiResponse = await openai.chat.completions.create({
-            model: "gpt-4",
-            messages: [{ role: "user", content: aiPrompt }],
-            max_tokens: 300,
-            temperature: 0.7,
-        });
-
-        return `- **${symbol} (${originalCurrency})**: ${aiResponse.choices[0]?.message?.content || "No insights available."}`;
-    } catch (error) {
-        console.error(`Error generating AI summary for ${symbol}:`, error);
-        return `- **${symbol}**: No AI insights available.`;
     }
 }
