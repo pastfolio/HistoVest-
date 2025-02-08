@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { stocks, startDate, endDate } = req.body;
+        const { stocks, startDate, endDate, investmentAmount } = req.body;
         let portfolioValueStart = 0;
         let portfolioValueEnd = 0;
         let cashAllocation = 0;
@@ -22,7 +22,13 @@ export default async function handler(req, res) {
             .toISOString()
             .split("T")[0];
 
-        console.log(`📊 Fetching data for ${stocks.length} stocks...`);
+        const totalInvestment = parseFloat(investmentAmount); // ✅ Use user's selected investment amount
+
+        if (isNaN(totalInvestment) || totalInvestment <= 0) {
+            throw new Error("Invalid investment amount. Please enter a positive number.");
+        }
+
+        console.log(`📊 Fetching data for ${stocks.length} stocks with investment amount: $${totalInvestment}...`);
 
         for (const stock of stocks) {
             try {
@@ -42,8 +48,8 @@ export default async function handler(req, res) {
                 console.log(`${stock.symbol} Prices: Start - $${startPrice}, End - $${endPrice}`);
 
                 const percentage = parseFloat(stock.percentage) / 100;
-                const investment = 100000 * percentage;
-                const shares = investment / startPrice;
+                const investment = totalInvestment * percentage; // ✅ Use user-defined amount
+                const shares = investment / startPrice; // ✅ Fractional shares supported
 
                 portfolioValueStart += shares * startPrice;
                 portfolioValueEnd += shares * endPrice;
@@ -63,7 +69,7 @@ export default async function handler(req, res) {
             throw new Error("Portfolio start value is zero, check stock data retrieval.");
         }
 
-        let cashValueStart = (cashAllocation / 100) * 100000;
+        let cashValueStart = (cashAllocation / 100) * totalInvestment;
         let cashValueEnd = cashValueStart;
 
         portfolioValueStart += cashValueStart;
@@ -89,7 +95,7 @@ export default async function handler(req, res) {
     }
 }
 
-// ✅ **Updated AI Analysis for Stocks**
+// ✅ **AI-Generated Stock Insights (Still Maintained)**
 async function getStockAnalysis(symbol, startDate, endDate) {
     try {
         const acquisitions = await getAcquisitionDetails(symbol, startDate, endDate);

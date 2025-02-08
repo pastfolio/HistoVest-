@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Head from "next/head";
-import StockLookup from "../components/StockLookup"; // ✅ Import Stock Lookup Component
+import StockLookup from "../components/StockLookup";
 
 interface Stock {
   symbol: string;
@@ -13,6 +13,7 @@ export default function Simulator() {
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [investmentAmount, setInvestmentAmount] = useState<string>("100000"); // ✅ Default to $100K
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
   const [growth, setGrowth] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -31,19 +32,10 @@ export default function Simulator() {
   };
 
   const validateInputs = () => {
-    if (stocks.some(stock => stock.symbol.trim() === "")) {
-      return "Please select a valid stock symbol.";
-    }
-
-    const symbols = stocks.map(stock => stock.symbol);
-    if (new Set(symbols).size !== symbols.length) {
-      return "Duplicate stock symbols detected. Please remove duplicates.";
-    }
-
-    if (new Date(startDate) >= new Date(endDate)) {
-      return "Start date must be before the end date.";
-    }
-
+    if (stocks.some(stock => stock.symbol.trim() === "")) return "Please select a valid stock symbol.";
+    if (new Set(stocks.map(stock => stock.symbol)).size !== stocks.length) return "Duplicate stock symbols detected.";
+    if (new Date(startDate) >= new Date(endDate)) return "Start date must be before the end date.";
+    if (Number(investmentAmount) <= 0) return "Investment amount must be greater than zero.";
     return null;
   };
 
@@ -62,17 +54,16 @@ export default function Simulator() {
       const response = await fetch("/api/simulator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks, startDate, endDate }),
+        body: JSON.stringify({ stocks, startDate, endDate, investmentAmount }),
       });
 
       if (!response.ok) throw new Error("Failed to calculate portfolio");
 
       const result = await response.json();
-
       setPortfolioEndValue(parseFloat(result.endValue));
       setGrowth(result.growth);
       setSummary(result.summary);
-      setApiMessage(result.message); // ✅ Show missing stock warnings
+      setApiMessage(result.message);
 
     } catch (err) {
       console.error("Error calculating portfolio:", err);
@@ -93,14 +84,23 @@ export default function Simulator() {
           HistoVest Simulator
         </h1>
 
+        {/* INVESTMENT AMOUNT INPUT */}
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-[#facc15]">Investment Amount ($)</h2>
+          <input
+            type="number"
+            value={investmentAmount}
+            onChange={(e) => setInvestmentAmount(e.target.value)}
+            className="p-2 bg-[#222] text-white border border-gray-600 w-full focus:ring-2 focus:ring-[#facc15] text-center"
+          />
+        </div>
+
         {/* STOCK INPUT SECTION */}
         <div className="mt-6">
           <h2 className="text-lg font-semibold text-[#facc15]">Configure Portfolio</h2>
-
           {stocks.map((stock, index) => (
             <div key={index} className="flex space-x-3 items-center mt-3">
               <StockLookup onSelectStock={(symbol) => handleStockChange(index, "symbol", symbol)} />
-
               <input
                 type="number"
                 placeholder="Percentage (e.g., 10%)"
@@ -110,7 +110,6 @@ export default function Simulator() {
               />
             </div>
           ))}
-
           {stocks.length < 10 && (
             <button onClick={addStock} className="mt-4 px-4 py-3 w-full bg-[#facc15] text-black font-bold hover:opacity-90 uppercase">
               + Add Stock
@@ -118,22 +117,12 @@ export default function Simulator() {
           )}
         </div>
 
-        {/* DATE SELECTION (Side by Side) */}
+        {/* DATE SELECTION */}
         <div className="mt-6">
           <h2 className="text-lg font-semibold text-[#facc15]">Select Date Range</h2>
           <div className="flex space-x-3">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"
-            />
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"/>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"/>
           </div>
         </div>
 
@@ -144,8 +133,6 @@ export default function Simulator() {
 
         {/* ERROR MESSAGE */}
         {error && <p className="mt-4 text-red-500 font-bold text-center">{error}</p>}
-
-        {/* WARNING MESSAGE FOR MISSING STOCKS */}
         {apiMessage && <p className="mt-4 text-yellow-400 font-bold text-center">{apiMessage}</p>}
 
         {/* PORTFOLIO RESULTS */}
@@ -157,7 +144,7 @@ export default function Simulator() {
           </div>
         )}
 
-        {/* AI SUMMARY SECTION */}
+        {/* AI SUMMARY */}
         {summary && (
           <div className="mt-6 p-6 bg-[#222] border border-gray-700">
             <h2 className="text-lg font-semibold text-[#facc15]">Portfolio Summary & Review</h2>
