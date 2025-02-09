@@ -18,44 +18,49 @@ export default async function handler(req, res) {
         let stockSummaries = [];
 
         const period1 = new Date(startDate).toISOString().split("T")[0];
-        const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split("T")[0];
+        const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-        const totalInvestment = parseFloat(investmentAmount); // ✅ Use user's selected investment amount
-
+        const totalInvestment = parseFloat(investmentAmount);
         if (isNaN(totalInvestment) || totalInvestment <= 0) {
             throw new Error("Invalid investment amount. Please enter a positive number.");
         }
 
         console.log(`📊 Fetching data for ${stocks.length} stocks with investment amount: $${totalInvestment}...`);
 
-        for (const stock of stocks) {
+        // Sort stocks by position size (largest to smallest)
+        const sortedStocks = stocks.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
+
+        for (const stock of sortedStocks) {
             try {
+                // 🔍 Fetch full company name (prevents AI misinterpretation)
+                const stockInfo = await yahooFinance.quoteSummary(stock.symbol, { modules: ["assetProfile"] });
+                const companyName = stockInfo?.assetProfile?.longBusinessSummary ? stockInfo.assetProfile.longBusinessSummary : stock.symbol;
+
                 const stockData = await yahooFinance.chart(stock.symbol, {
                     period1: period1,
                     period2: period2,
-                    interval: "1d",
+                    interval: "1mo",
                 });
 
                 if (!stockData.quotes || stockData.quotes.length < 2) {
-                    throw new Error(`No valid stock data found for ${stock.symbol}`);
+                    throw new Error(`No valid stock data found for ${companyName} (${stock.symbol})`);
                 }
 
                 const startPrice = stockData.quotes[0].adjclose;
                 const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
+                const priceChange = ((endPrice - startPrice) / startPrice) * 100;
 
-                console.log(`${stock.symbol} Prices: Start - $${startPrice}, End - $${endPrice}`);
+                console.log(`${companyName} (${stock.symbol}) Prices: Start - $${startPrice}, End - $${endPrice}, Change - ${priceChange.toFixed(2)}%`);
 
                 const percentage = parseFloat(stock.percentage) / 100;
-                const investment = totalInvestment * percentage; // ✅ Use user-defined amount
-                const shares = investment / startPrice; // ✅ Fractional shares supported
+                const investment = totalInvestment * percentage;
+                const shares = investment / startPrice;
 
                 portfolioValueStart += shares * startPrice;
                 portfolioValueEnd += shares * endPrice;
 
-                // Add AI-generated stock analysis
-                const stockAnalysis = await getStockAnalysis(stock.symbol, startDate, endDate);
+                // AI-generated stock analysis (weighted)
+                const stockAnalysis = await getStockAnalysis(companyName, stock.symbol, stock.percentage, startDate, endDate, priceChange);
                 stockSummaries.push(stockAnalysis);
 
             } catch (error) {
@@ -78,8 +83,10 @@ export default async function handler(req, res) {
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
         console.log(`✅ Final Portfolio Value: $${portfolioValueEnd.toFixed(2)}, Growth: ${growth.toFixed(2)}%`);
 
-        // 🔥 AI Market Overview
+        // AI Market Overview with Investor Sentiment
         const macroSummary = await getMacroAnalysis(startDate, endDate);
+
+        console.log("📢 AI Stock Summaries:", stockSummaries);
 
         res.status(200).json({
             startValue: portfolioValueStart.toFixed(2),
@@ -95,70 +102,68 @@ export default async function handler(req, res) {
     }
 }
 
-// ✅ **AI-Generated Stock Insights (Still Maintained)**
-async function getStockAnalysis(symbol, startDate, endDate) {
+// ✅ **Refined AI Stock Analysis**
+async function getStockAnalysis(companyName, symbol, allocationPercentage, startDate, endDate, priceChange) {
     try {
-        const acquisitions = await getAcquisitionDetails(symbol, startDate, endDate);
+        let aiPrompt;
 
-        const aiPrompt = `
-        Analyze ${symbol}'s stock performance from ${startDate} to ${endDate}. Provide a clear, natural-flowing summary covering:
-        - Earnings performance, including revenue and net income changes, and whether results beat or missed expectations.
-        - Major company developments, including key product launches, business expansions, or leadership changes.
-        - Market sentiment, including analyst upgrades/downgrades and hedge fund movements.
-        - Insider transactions and how they reflect confidence or uncertainty in the stock.
-        - Strategic acquisitions during this time, if applicable: ${acquisitions || "None reported"}.
-        - Dividend payouts, if any, and their impact on investor sentiment.
-        - Stock performance, including its price change and how it compared to competitors and the broader market.
-        - Key risks and challenges that affected the company during this period.
+        if (allocationPercentage >= 15) {
+            aiPrompt = `
+                Analyze **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
 
-        **Write the response in clear, structured paragraphs, ensuring smooth transitions between topics. Avoid bullet points.**
-        `;
+                - Stock price changed by **${priceChange.toFixed(2)}%**.
+                - What major events influenced this price movement?
+                - Key earnings reports, product launches, acquisitions, or strategic decisions.
+                - How did investors and analysts react? Were there significant buy/sell movements?
+
+                **Write in structured, professional paragraphs.**
+            `;
+        } else if (allocationPercentage >= 5) {
+            aiPrompt = `
+                Provide a **concise** analysis of **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
+                - Price change: **${priceChange.toFixed(2)}%**.
+                - Key financial events, industry impact, and investor sentiment.
+
+                **Limit response to 3-4 sentences.**
+            `;
+        } else {
+            aiPrompt = `
+                Provide a **brief** summary of **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
+                - Stock price changed by **${priceChange.toFixed(2)}%**.
+                - Mention **one** key event or factor influencing this movement.
+
+                **Limit to 1-2 sentences.**
+            `;
+        }
+
+        console.log(`🧠 Requesting AI summary for ${companyName} (${symbol})...`);
 
         const aiResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: aiPrompt }],
-            max_tokens: 1000,
-            temperature: 0.7,
-        });
-
-        return aiResponse.choices[0]?.message?.content || `No insights available for ${symbol}`;
-    } catch (error) {
-        console.error(`❌ Error generating AI summary for ${symbol}:`, error);
-        return `No AI insights available for ${symbol}`;
-    }
-}
-
-// ✅ **Filter Acquisitions by Date**
-async function getAcquisitionDetails(symbol, startDate, endDate) {
-    try {
-        const acquisitionPrompt = `List only significant acquisitions or mergers that ${symbol} completed between ${startDate} and ${endDate}. If none, return an empty string.`;
-
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: acquisitionPrompt }],
             max_tokens: 500,
             temperature: 0.7,
         });
 
-        const content = response.choices[0]?.message?.content || "";
-        return content ? `During this period, ${symbol} acquired ${content}.` : "";
+        return aiResponse.choices[0]?.message?.content || `No AI insights available for ${companyName} (${symbol})`;
+
     } catch (error) {
-        console.error(`❌ Error retrieving acquisition data for ${symbol}:`, error);
-        return "";
+        console.error(`❌ AI request failed for ${companyName} (${symbol}):`, error);
+        return `No AI insights available for ${companyName} (${symbol})`;
     }
 }
 
-// ✅ **AI Market Overview**
+// ✅ **Enhanced AI Market Overview**
 async function getMacroAnalysis(startDate, endDate) {
     try {
         const macroPrompt = `
-            Provide a structured market analysis for the period from ${startDate} to ${endDate}. Cover:
-            - Performance of major indices (S&P 500, Dow, Nasdaq) and key stock market trends.
-            - Monetary and fiscal policies, including interest rates and economic stimulus measures.
-            - Global events that shaped market movements.
-            - Sector performance, highlighting industries that thrived or struggled.
+            Provide a detailed stock market overview from **${startDate} to ${endDate}**.
+            - How did major indices (S&P 500, Dow, Nasdaq) perform?
+            - What macroeconomic trends (interest rates, inflation, monetary policy) affected investors?
+            - What were investors prioritizing? (Tech stocks? IPOs? Safe-haven assets?)
+            - How did global events impact risk appetite?
 
-            **Write in clear, concise paragraphs. Avoid bullet points.**
+            **Write a structured, professional market overview.**
         `;
 
         const macroResponse = await openai.chat.completions.create({

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Head from "next/head";
+import { motion } from "framer-motion";
+import { DollarSign, Calendar, Plus, BarChart2 } from "lucide-react";
 import StockLookup from "../components/StockLookup";
 
 interface Stock {
@@ -13,11 +15,10 @@ export default function Simulator() {
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [investmentAmount, setInvestmentAmount] = useState<string>("100000"); // ✅ Default to $100K
+  const [investmentAmount, setInvestmentAmount] = useState<string>("100000");
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
   const [growth, setGrowth] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
-  const [apiMessage, setApiMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +49,6 @@ export default function Simulator() {
 
     setLoading(true);
     setError(null);
-    setApiMessage(null);
 
     try {
       const response = await fetch("/api/simulator", {
@@ -63,8 +63,6 @@ export default function Simulator() {
       setPortfolioEndValue(parseFloat(result.endValue));
       setGrowth(result.growth);
       setSummary(result.summary);
-      setApiMessage(result.message);
-
     } catch (err) {
       console.error("Error calculating portfolio:", err);
       setError("An error occurred. Please try again.");
@@ -74,24 +72,30 @@ export default function Simulator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111] text-white flex justify-center items-center px-6">
+    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900 text-white flex justify-center items-center px-6">
       <Head>
         <title>HistoVest Simulator</title>
       </Head>
-
-      <div className="max-w-3xl w-full p-8 bg-[#1a1a1a] text-white border border-[#444] shadow-2xl">
-        <h1 className="text-3xl font-extrabold text-center text-[#facc15] tracking-wide">
-          HistoVest Simulator
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-4xl w-full p-10 bg-black/30 backdrop-blur-lg border border-gray-700 shadow-2xl rounded-xl"
+      >
+        <h1 className="text-4xl font-extrabold text-center text-[#facc15] tracking-wide flex items-center justify-center gap-2">
+          <BarChart2 size={36} /> HistoVest Simulator
         </h1>
 
         {/* INVESTMENT AMOUNT INPUT */}
         <div className="mt-6">
-          <h2 className="text-lg font-semibold text-[#facc15]">Investment Amount ($)</h2>
+          <h2 className="text-lg font-semibold text-[#facc15] flex items-center gap-2">
+            <DollarSign /> Investment Amount ($)
+          </h2>
           <input
             type="number"
             value={investmentAmount}
             onChange={(e) => setInvestmentAmount(e.target.value)}
-            className="p-2 bg-[#222] text-white border border-gray-600 w-full focus:ring-2 focus:ring-[#facc15] text-center"
+            className="p-3 bg-gray-800 text-white border border-gray-600 w-full rounded-lg focus:ring-2 focus:ring-[#facc15] text-center"
           />
         </div>
 
@@ -103,55 +107,72 @@ export default function Simulator() {
               <StockLookup onSelectStock={(symbol) => handleStockChange(index, "symbol", symbol)} />
               <input
                 type="number"
-                placeholder="Percentage (e.g., 10%)"
+                placeholder="%"
                 value={stock.percentage}
                 onChange={(e) => handleStockChange(index, "percentage", e.target.value)}
-                className="p-2 bg-[#222] text-white border border-gray-600 w-1/3 focus:ring-2 focus:ring-[#facc15] text-center"
+                className="p-3 bg-gray-800 text-white border border-gray-600 w-1/3 rounded-lg text-center"
               />
             </div>
           ))}
           {stocks.length < 10 && (
-            <button onClick={addStock} className="mt-4 px-4 py-3 w-full bg-[#facc15] text-black font-bold hover:opacity-90 uppercase">
-              + Add Stock
-            </button>
+            <motion.button 
+              onClick={addStock} 
+              whileTap={{ scale: 0.95 }}
+              className="mt-4 flex items-center justify-center px-4 py-3 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold rounded-lg hover:opacity-90 gap-2"
+            >
+              <Plus /> Add Stock
+            </motion.button>
           )}
         </div>
 
         {/* DATE SELECTION */}
         <div className="mt-6">
-          <h2 className="text-lg font-semibold text-[#facc15]">Select Date Range</h2>
+          <h2 className="text-lg font-semibold text-[#facc15] flex items-center gap-2">
+            <Calendar /> Select Date Range
+          </h2>
           <div className="flex space-x-3">
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"/>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 bg-[#222] text-white border border-gray-600 w-1/2 focus:ring-2 focus:ring-[#facc15] text-center"/>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-3 bg-gray-800 text-white border border-gray-600 w-1/2 rounded-lg text-center"/>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-3 bg-gray-800 text-white border border-gray-600 w-1/2 rounded-lg text-center"/>
           </div>
         </div>
 
-        {/* CALCULATE BUTTON */}
-        <button onClick={calculatePortfolio} disabled={loading} className="mt-6 px-6 py-4 w-full bg-[#facc15] text-black font-bold uppercase hover:opacity-90">
+        {/* ✅ CALCULATE BUTTON */}
+        <motion.button 
+          onClick={calculatePortfolio}
+          disabled={loading}
+          whileTap={{ scale: 0.95 }}
+          className="mt-6 px-6 py-4 w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold uppercase rounded-lg hover:opacity-90"
+        >
           {loading ? "Calculating..." : "Calculate Portfolio"}
-        </button>
+        </motion.button>
 
-        {/* ERROR MESSAGE */}
-        {error && <p className="mt-4 text-red-500 font-bold text-center">{error}</p>}
-        {apiMessage && <p className="mt-4 text-yellow-400 font-bold text-center">{apiMessage}</p>}
-
-        {/* PORTFOLIO RESULTS */}
+        {/* RESULTS & SUMMARY */}
         {portfolioEndValue !== null && (
-          <div className="mt-6 p-6 bg-[#222] border border-gray-700">
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            transition={{ duration: 0.5 }}
+            className="mt-6 p-6 bg-black/40 border border-gray-700 rounded-lg backdrop-blur-lg"
+          >
             <h2 className="text-lg font-semibold text-[#facc15]">Portfolio Performance</h2>
             <p className="text-gray-300">Total End Value: <span className="text-white font-medium">${portfolioEndValue.toLocaleString()}</span></p>
             <p className="text-gray-300">Growth: <span className="text-white font-medium">{growth}%</span></p>
-          </div>
+          </motion.div>
         )}
 
         {/* AI SUMMARY */}
         {summary && (
-          <div className="mt-6 p-6 bg-[#222] border border-gray-700">
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            transition={{ duration: 0.5 }}
+            className="mt-6 p-6 bg-black/40 border border-gray-700 rounded-lg backdrop-blur-lg"
+          >
             <h2 className="text-lg font-semibold text-[#facc15]">Portfolio Summary & Review</h2>
             <p className="text-gray-300 whitespace-pre-line">{summary}</p>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
