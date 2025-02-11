@@ -9,32 +9,51 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: `Method ${req.method} not allowed` });
     }
 
+    if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: "Missing OpenAI API Key in environment variables." });
+    }
+
     try {
         const { stocks, startDate, endDate, investmentAmount } = req.body;
+
+        if (!stocks || !Array.isArray(stocks) || stocks.length === 0) {
+            return res.status(400).json({ error: "Stocks array is missing or empty." });
+        }
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: "Start and End date are required." });
+        }
+        if (!investmentAmount || isNaN(parseFloat(investmentAmount)) || investmentAmount <= 0) {
+            return res.status(400).json({ error: "Invalid investment amount." });
+        }
+
         let portfolioValueStart = 0;
         let portfolioValueEnd = 0;
-        let cashAllocation = 0;
         let missingStocks = [];
         let stockSummaries = [];
+        let debugLogs = [];
 
         const period1 = new Date(startDate).toISOString().split("T")[0];
         const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
         const totalInvestment = parseFloat(investmentAmount);
-        if (isNaN(totalInvestment) || totalInvestment <= 0) {
-            throw new Error("Invalid investment amount. Please enter a positive number.");
-        }
 
-        console.log(`📊 Fetching data for ${stocks.length} stocks with investment amount: $${totalInvestment}...`);
+        debugLogs.push(`Fetching data for ${stocks.length} stocks with investment: $${totalInvestment}`);
 
-        // Sort stocks by position size (largest to smallest)
         const sortedStocks = stocks.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
 
         for (const stock of sortedStocks) {
             try {
-                // 🔍 Fetch full company name (prevents AI misinterpretation)
-                const stockInfo = await yahooFinance.quoteSummary(stock.symbol, { modules: ["assetProfile"] });
-                const companyName = stockInfo?.assetProfile?.longBusinessSummary ? stockInfo.assetProfile.longBusinessSummary : stock.symbol;
+                console.log(`Fetching data for ${stock.symbol}`);
+                debugLogs.push(`Fetching data for ${stock.symbol}`);
+
+                let companyName = stock.symbol;
+                try {
+                    const stockInfo = await yahooFinance.quoteSummary(stock.symbol, { modules: ["assetProfile"] });
+                    if (stockInfo?.assetProfile?.companyName) {
+                        companyName = stockInfo.assetProfile.companyName;
+                    }
+                } catch (infoError) {
+                    debugLogs.push(`Failed to fetch company info for ${stock.symbol}`);
+                }
 
                 const stockData = await yahooFinance.chart(stock.symbol, {
                     period1: period1,
@@ -42,15 +61,23 @@ export default async function handler(req, res) {
                     interval: "1mo",
                 });
 
-                if (!stockData.quotes || stockData.quotes.length < 2) {
+                if (!stockData?.quotes || stockData.quotes.length < 2) {
                     throw new Error(`No valid stock data found for ${companyName} (${stock.symbol})`);
                 }
 
-                const startPrice = stockData.quotes[0].adjclose;
-                const endPrice = stockData.quotes[stockData.quotes.length - 1].adjclose;
+                const startPrice = stockData.quotes[0]?.adjclose;
+                const endPrice = stockData.quotes[stockData.quotes.length - 1]?.adjclose;
+
+                if (!startPrice || !endPrice || isNaN(startPrice) || isNaN(endPrice)) {
+                    debugLogs.push(`⚠️ Skipping ${stock.symbol} due to invalid price data`);
+                    missingStocks.push(stock.symbol);
+                    continue;
+                }
+
                 const priceChange = ((endPrice - startPrice) / startPrice) * 100;
 
                 console.log(`${companyName} (${stock.symbol}) Prices: Start - $${startPrice}, End - $${endPrice}, Change - ${priceChange.toFixed(2)}%`);
+                debugLogs.push(`${companyName} (${stock.symbol}) Prices: Start - $${startPrice}, End - $${endPrice}, Change - ${priceChange.toFixed(2)}%`);
 
                 const percentage = parseFloat(stock.percentage) / 100;
                 const investment = totalInvestment * percentage;
@@ -59,14 +86,12 @@ export default async function handler(req, res) {
                 portfolioValueStart += shares * startPrice;
                 portfolioValueEnd += shares * endPrice;
 
-                // AI-generated stock analysis (weighted)
-                const stockAnalysis = await getStockAnalysis(companyName, stock.symbol, stock.percentage, startDate, endDate, priceChange);
+                const stockAnalysis = await getStockAnalysis(companyName, stock.symbol, startDate, endDate, priceChange);
                 stockSummaries.push(stockAnalysis);
 
             } catch (error) {
-                console.error(`❌ Error fetching data for ${stock.symbol}:`, error);
+                debugLogs.push(`Error fetching data for ${stock.symbol}: ${error.message}`);
                 missingStocks.push(stock.symbol);
-                cashAllocation += parseFloat(stock.percentage);
             }
         }
 
@@ -74,108 +99,79 @@ export default async function handler(req, res) {
             throw new Error("Portfolio start value is zero, check stock data retrieval.");
         }
 
-        let cashValueStart = (cashAllocation / 100) * totalInvestment;
-        let cashValueEnd = cashValueStart;
-
-        portfolioValueStart += cashValueStart;
-        portfolioValueEnd += cashValueEnd;
-
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
-        console.log(`✅ Final Portfolio Value: $${portfolioValueEnd.toFixed(2)}, Growth: ${growth.toFixed(2)}%`);
 
-        // AI Market Overview with Investor Sentiment
         const macroSummary = await getMacroAnalysis(startDate, endDate);
-
-        console.log("📢 AI Stock Summaries:", stockSummaries);
 
         res.status(200).json({
             startValue: portfolioValueStart.toFixed(2),
             endValue: portfolioValueEnd.toFixed(2),
             growth: growth.toFixed(2),
-            summary: `# Market Overview\n\n${macroSummary}\n\n# Company Insights\n\n${stockSummaries.join("\n\n")}`,
+            summary: `${macroSummary}\n\n${stockSummaries.join("\n\n")}`,
             missingStocks: missingStocks.length > 0 ? `Some stocks were missing data and were treated as cash: ${missingStocks.join(", ")}` : null,
+            debug: debugLogs,
         });
 
     } catch (error) {
-        console.error("❌ Error in simulator API:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("API Error:", error.message);
+        res.status(500).json({ error: error.message || "Internal server error", debug: error.stack });
     }
 }
 
-// ✅ **Refined AI Stock Analysis**
-async function getStockAnalysis(companyName, symbol, allocationPercentage, startDate, endDate, priceChange) {
+// ✅ **Detailed Market Overview**
+async function getMacroAnalysis(startDate, endDate) {
     try {
-        let aiPrompt;
-
-        if (allocationPercentage >= 15) {
-            aiPrompt = `
-                Analyze **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
-
-                - Stock price changed by **${priceChange.toFixed(2)}%**.
-                - What major events influenced this price movement?
-                - Key earnings reports, product launches, acquisitions, or strategic decisions.
-                - How did investors and analysts react? Were there significant buy/sell movements?
-
-                **Write in structured, professional paragraphs.**
-            `;
-        } else if (allocationPercentage >= 5) {
-            aiPrompt = `
-                Provide a **concise** analysis of **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
-                - Price change: **${priceChange.toFixed(2)}%**.
-                - Key financial events, industry impact, and investor sentiment.
-
-                **Limit response to 3-4 sentences.**
-            `;
-        } else {
-            aiPrompt = `
-                Provide a **brief** summary of **${companyName} (${symbol})** from **${startDate} to ${endDate}**.
-                - Stock price changed by **${priceChange.toFixed(2)}%**.
-                - Mention **one** key event or factor influencing this movement.
-
-                **Limit to 1-2 sentences.**
-            `;
-        }
-
-        console.log(`🧠 Requesting AI summary for ${companyName} (${symbol})...`);
+        const aiPrompt = `
+            Provide a highly detailed financial market overview from ${startDate} to ${endDate}.
+            Discuss stock market trends, economic factors, investor sentiment, and major global events.
+            Explain how these factors impacted companies and industries in-depth.
+        `;
 
         const aiResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: aiPrompt }],
-            max_tokens: 500,
+            max_tokens: 700,
             temperature: 0.7,
         });
 
-        return aiResponse.choices[0]?.message?.content || `No AI insights available for ${companyName} (${symbol})`;
+        return aiResponse.choices[0]?.message?.content || `No AI market insights available for this period.`;
 
     } catch (error) {
-        console.error(`❌ AI request failed for ${companyName} (${symbol}):`, error);
-        return `No AI insights available for ${companyName} (${symbol})`;
+        console.error("AI request failed for Market Overview:", error);
+        return `No AI market insights available.`;
     }
 }
 
-// ✅ **Enhanced AI Market Overview**
-async function getMacroAnalysis(startDate, endDate) {
+// ✅ **Detailed Company Analysis (Cleaned Format)**
+async function getStockAnalysis(companyName, symbol, startDate, endDate, priceChange) {
     try {
-        const macroPrompt = `
-            Provide a detailed stock market overview from **${startDate} to ${endDate}**.
-            - How did major indices (S&P 500, Dow, Nasdaq) perform?
-            - What macroeconomic trends (interest rates, inflation, monetary policy) affected investors?
-            - What were investors prioritizing? (Tech stocks? IPOs? Safe-haven assets?)
-            - How did global events impact risk appetite?
+        const aiPrompt = `
+            Analyze ${companyName} (${symbol}) from ${startDate} to ${endDate}.
+            Discuss stock price movements, earnings reports, product launches, business decisions, and industry trends.
+            Only include relevant sections—if a topic isn't applicable, omit it.
+            Format output as:
 
-            **Write a structured, professional market overview.**
+            ${companyName}: (${symbol})
+            — Stock price movements
+            — Earnings reports
+            — Product launches
+            — Business decisions
+            — Market trends
+
+            Keep it detailed and insightful.
         `;
 
-        const macroResponse = await openai.chat.completions.create({
+        const aiResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: macroPrompt }],
-            max_tokens: 1000,
+            messages: [{ role: "user", content: aiPrompt }],
+            max_tokens: 700,
             temperature: 0.7,
         });
 
-        return macroResponse.choices[0]?.message?.content || "No macroeconomic insights available.";
+        return aiResponse.choices[0]?.message?.content || `No AI insights available.`;
+
     } catch (error) {
-        console.error("❌ Error generating macroeconomic insights:", error);
-        return "No macroeconomic insights available.";
+        console.error(`AI request failed for ${companyName} (${symbol}):`, error);
+        return `${companyName}: (${symbol})\n\nNo AI insights available.`;
     }
 }
