@@ -38,6 +38,8 @@ export default async function handler(req, res) {
 
         debugLogs.push(`Fetching data for ${stocks.length} stocks with investment: $${totalInvestment}`);
 
+        console.time("Stock Data & Calculation"); // ✅ Start measuring calculation time
+
         const sortedStocks = stocks.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
 
         for (const stock of sortedStocks) {
@@ -61,7 +63,7 @@ export default async function handler(req, res) {
                     interval: "1mo",
                 });
 
-                if (!stockData?.quotes || stockData.quotes.length < 2) {
+                if (!stockData || !stockData.quotes || stockData.quotes.length < 2) {
                     throw new Error(`No valid stock data found for ${companyName} (${stock.symbol})`);
                 }
 
@@ -95,13 +97,17 @@ export default async function handler(req, res) {
             }
         }
 
+        console.timeEnd("Stock Data & Calculation"); // ✅ End calculation time tracking
+
         if (portfolioValueStart === 0) {
             throw new Error("Portfolio start value is zero, check stock data retrieval.");
         }
 
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
 
+        console.time("AI Market Summary Generation"); // ✅ Start AI time tracking
         const macroSummary = await getMacroAnalysis(startDate, endDate);
+        console.timeEnd("AI Market Summary Generation"); // ✅ End AI time tracking
 
         res.status(200).json({
             startValue: portfolioValueStart.toFixed(2),
@@ -127,12 +133,14 @@ async function getMacroAnalysis(startDate, endDate) {
             Explain how these factors impacted companies and industries in-depth.
         `;
 
+        console.time("AI Call for Market Summary"); // Start AI timing
         const aiResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: aiPrompt }],
             max_tokens: 700,
             temperature: 0.7,
         });
+        console.timeEnd("AI Call for Market Summary"); // End AI timing
 
         return aiResponse.choices[0]?.message?.content || `No AI market insights available for this period.`;
 
@@ -142,31 +150,23 @@ async function getMacroAnalysis(startDate, endDate) {
     }
 }
 
-// ✅ **Detailed Company Analysis (Cleaned Format)**
+// ✅ **Detailed Company Analysis**
 async function getStockAnalysis(companyName, symbol, startDate, endDate, priceChange) {
     try {
         const aiPrompt = `
             Analyze ${companyName} (${symbol}) from ${startDate} to ${endDate}.
             Discuss stock price movements, earnings reports, product launches, business decisions, and industry trends.
             Only include relevant sections—if a topic isn't applicable, omit it.
-            Format output as:
-
-            ${companyName}: (${symbol})
-            — Stock price movements
-            — Earnings reports
-            — Product launches
-            — Business decisions
-            — Market trends
-
-            Keep it detailed and insightful.
         `;
 
+        console.time(`AI Call for ${symbol}`); // Start AI timing for this stock
         const aiResponse = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: aiPrompt }],
             max_tokens: 700,
             temperature: 0.7,
         });
+        console.timeEnd(`AI Call for ${symbol}`); // End AI timing for this stock
 
         return aiResponse.choices[0]?.message?.content || `No AI insights available.`;
 
