@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         let debugLogs = [];
 
         const period1 = new Date(startDate).toISOString().split("T")[0];
-        const period2 = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        const period2 = new Date(endDate).toISOString().split("T")[0]; // ✅ Fix: Use exact end date
         const totalInvestment = parseFloat(investmentAmount);
 
         console.time("Stock Data & Calculation");
@@ -41,8 +41,10 @@ export default async function handler(req, res) {
                     interval: "1mo",
                 });
 
-                if (!stockData?.quotes || stockData.quotes.length < 2) {
-                    throw new Error(`No valid stock data found for ${stock.symbol}`);
+                if (!stockData || !stockData.quotes || stockData.quotes.length < 2) {
+                    debugLogs.push(`⚠️ No valid data for ${stock.symbol}`);
+                    missingStocks.push(stock.symbol);
+                    continue;
                 }
 
                 const startPrice = stockData.quotes[0]?.adjclose;
@@ -61,18 +63,18 @@ export default async function handler(req, res) {
                 portfolioValueStart += shares * startPrice;
                 portfolioValueEnd += shares * endPrice;
 
-                debugLogs.push(`${stock.symbol} | Start Price: $${startPrice} | End Price: $${endPrice}`);
+                debugLogs.push(`${stock.symbol} | Start: $${startPrice} | End: $${endPrice}`);
 
             } catch (error) {
-                debugLogs.push(`Error fetching data for ${stock.symbol}: ${error.message}`);
+                debugLogs.push(`Error fetching ${stock.symbol}: ${error.message}`);
                 missingStocks.push(stock.symbol);
             }
         }
 
         console.timeEnd("Stock Data & Calculation");
 
-        if (portfolioValueStart === 0) {
-            throw new Error("Portfolio start value is zero, check stock data retrieval.");
+        if (portfolioValueStart === 0 || isNaN(portfolioValueStart) || isNaN(portfolioValueEnd)) {
+            throw new Error("Portfolio value calculation failed, possible missing stock data.");
         }
 
         const growth = ((portfolioValueEnd - portfolioValueStart) / portfolioValueStart) * 100;
@@ -81,7 +83,7 @@ export default async function handler(req, res) {
             startValue: portfolioValueStart.toFixed(2),
             endValue: portfolioValueEnd.toFixed(2),
             growth: growth.toFixed(2),
-            missingStocks: missingStocks.length > 0 ? `Some stocks were missing data: ${missingStocks.join(", ")}` : null,
+            missingStocks: missingStocks.length > 0 ? `Missing data: ${missingStocks.join(", ")}` : null,
             debug: debugLogs,
         });
 

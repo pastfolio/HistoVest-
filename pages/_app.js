@@ -1,13 +1,18 @@
-import '../styles/globals.css'; // Ensure TailwindCSS is imported
-import TopBar from '../components/TopBar'; // Import the TopBar component
+import { IBM_Plex_Sans } from "next/font/google";
+import "../styles/globals.css"; // Import Tailwind styles
+import TopBar from "../components/TopBar"; // Import TopBar component
 
-function MyApp({ Component, pageProps }) {
-    return (
-        <>
-            <TopBar /> {/* Render the TopBar */}
-            <Component {...pageProps} />
-        </>
-    );
+// ✅ Correctly Import IBM Plex Sans with Font Weights
+const ibmPlexSans = IBM_Plex_Sans({ 
+  subsets: ["latin"], 
+  weight: ["400", "500", "600", "700"], // Ensuring normal to bold weights
+});
+
+export default function MyApp({ Component, pageProps }) {
+  return (
+    <main className={`${ibmPlexSans.className} font-sans`}>
+      <TopBar /> {/* Renders the top navigation bar */}
+      <Component {...pageProps} />
+    </main>
+  );
 }
-
-export default MyApp;

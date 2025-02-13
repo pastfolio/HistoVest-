@@ -12,7 +12,7 @@ export default function StockLookup({ onSelectStock }) {
   const handleSearch = async (e) => {
     const input = e.target.value;
     setQuery(input);
-    
+
     if (input.length < 2) {
       setResults([]);
       return;
@@ -38,21 +38,26 @@ export default function StockLookup({ onSelectStock }) {
 
   return (
     <div className="relative w-full max-w-md mx-auto">
+      {/* Search Input */}
       <input
         type="text"
         value={query}
         onChange={handleSearch}
         placeholder="Search for a stock (e.g., AAPL)"
-        className="p-3 w-full bg-[#222] text-white border border-gray-600 focus:ring-2 focus:ring-[#facc15]"
+        className="p-3 w-full bg-[#222] text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#facc15] relative z-10"
       />
+
+      {/* Loading & Error Messages */}
       {loading && <p className="text-gray-400 text-sm mt-2">Loading...</p>}
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+
+      {/* Dropdown Results */}
       {results.length > 0 && (
-        <ul className="absolute w-full bg-[#333] border border-gray-600 mt-1 text-white max-h-60 overflow-auto">
+        <ul className="absolute top-full left-0 w-full bg-[#333] border border-gray-600 mt-1 text-white max-h-60 overflow-auto shadow-lg rounded-lg z-50">
           {results.map((stock) => (
             <li 
               key={stock.symbol} 
-              className="p-2 hover:bg-[#444] cursor-pointer"
+              className="p-3 hover:bg-[#444] cursor-pointer transition-all duration-200"
               onClick={() => handleSelect(stock.symbol)}
             >
               {stock.symbol} - {stock.name}

@@ -1,6 +1,8 @@
 "use client";
+
 import { useState } from "react";
 import Head from "next/head";
+import Layout from "../components/Layout";
 import Header from "../components/Header";
 import InvestmentInput from "../components/InvestmentInput";
 import StockInput from "../components/StockInput";
@@ -95,24 +97,38 @@ export default function Simulator() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900 text-white flex justify-center items-center px-6">
+    <Layout>
       <Head>
         <title>HistoVest Simulator</title>
       </Head>
-      <div className="max-w-4xl w-full p-10 bg-black/30 backdrop-blur-lg border border-gray-700 shadow-2xl rounded-xl">
+      <div className="space-y-10">
         <Header />
-        <InvestmentInput investmentAmount={investmentAmount} setInvestmentAmount={setInvestmentAmount} />
-        <StockInput stocks={stocks} handleStockChange={(index, field, value) => {
-          const updatedStocks = [...stocks];
-          updatedStocks[index][field] = field === "symbol" ? value.toUpperCase() : value;
-          setStocks(updatedStocks);
-        }} addStock={() => {
-          if (stocks.length < 10) setStocks([...stocks, { symbol: "", percentage: "" }]);
-        }} />
+        
+        {/* Investment & Stock Inputs in Grid Layout - Responsive */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+          <InvestmentInput investmentAmount={investmentAmount} setInvestmentAmount={setInvestmentAmount} />
+          <StockInput 
+            stocks={stocks} 
+            handleStockChange={(index, field, value) => {
+              const updatedStocks = [...stocks];
+              updatedStocks[index][field] = field === "symbol" ? value.toUpperCase() : value;
+              setStocks(updatedStocks);
+            }} 
+            addStock={() => {
+              if (stocks.length < 10) setStocks([...stocks, { symbol: "", percentage: "" }]);
+            }} 
+          />
+        </div>
+
+        {/* Date Selector */}
         <DateSelector startDate={startDate} setStartDate={setStartDate} endDate={endDate} setEndDate={setEndDate} />
+        
+        {/* Calculate Portfolio Button */}
         <CalculatorButton calculatePortfolio={calculatePortfolio} loadingCalc={loadingCalc} />
+        
+        {/* Portfolio Results */}
         <PortfolioResults portfolioEndValue={portfolioEndValue} growth={growth} summary={summary} loadingSummary={loadingSummary} />
       </div>
-    </div>
+    </Layout>
   );
 }
