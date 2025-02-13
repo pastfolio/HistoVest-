@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/font": "^14.2.15",
     "@supabase/supabase-js": "^2.48.1",
     "apexcharts": "^4.3.0",
     "axios": "^1.7.9",
