@@ -8,15 +8,15 @@ export default function HomePage() {
     <>
       {/* 🔹 Meta Tags for SEO */}
       <Head>
-        <title>HistoVest - Explore Historical Stock Data</title>
+        <title>HistoVest - Historical Stock Analysis & Investment Simulation</title>
         <meta 
           name="description" 
-          content="Analyze historical stock performance, simulate investment strategies, and gain financial insights with HistoVest's data-driven tools." 
+          content="Analyze historical stock performance, simulate investments, and gain AI-driven insights to make smarter financial decisions with HistoVest." 
         />
-        <meta name="keywords" content="historical stock data, stock analysis, investment simulator, financial insights, stock lookup, portfolio backtesting" />
+        <meta name="keywords" content="historical stock data, stock market trends, investment simulator, AI financial insights, portfolio backtesting, historical stock lookup" />
         <meta name="author" content="HistoVest" />
-        <meta property="og:title" content="HistoVest - Explore Historical Stock Data" />
-        <meta property="og:description" content="Analyze historical stock performance, simulate investments, and gain insights for smarter decisions." />
+        <meta property="og:title" content="HistoVest - Historical Stock Analysis & Investment Simulation" />
+        <meta property="og:description" content="Backtest stock portfolios, analyze market trends, and explore AI-powered financial insights with HistoVest." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://www.histovest.com" />
         <meta property="og:image" content="https://www.histovest.com/preview-image.jpg" />
@@ -36,7 +36,7 @@ export default function HomePage() {
               href="/stock-data"
               className="px-6 py-3 border-2 border-[#facc15] text-[#facc15] font-semibold rounded-lg hover:bg-[#facc15] hover:text-black transition text-md shadow-md flex items-center gap-2"
             >
-              📊 Stock Lookup
+              📊 Historical Stock Lookup
             </Link>
             <Link
               href="/historical-stock-simulator"
@@ -54,7 +54,7 @@ export default function HomePage() {
           </h2>
           <p className="text-lg text-gray-300 max-w-4xl mx-auto leading-relaxed">
             Whether you're a <span className="text-[#facc15] font-semibold">trader, researcher, or financial analyst</span>, HistoVest helps you 
-            analyze **historical stock trends**, backtest portfolios, and explore **data-driven financial insights.** 
+            analyze historical stock trends, backtest portfolios, and explore data-driven financial insights.
           </p>
         </section>
 
@@ -63,21 +63,21 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-center text-[#facc15] mb-8">✨ Key Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-8">
             <div className="bg-black/50 p-6 rounded-xl text-center border border-gray-700 hover:bg-black/60 transition shadow-lg">
-              <h3 className="text-xl font-bold text-[#facc15]">📈 Stock Lookup</h3>
+              <h3 className="text-xl font-bold text-[#facc15]">📈 Historical Stock Lookup</h3>
               <p className="text-gray-400 mt-3">
-                Search **historical stock prices**, analyze trends, and gain insights for **smarter financial decisions**.
+                Search historical stock prices, analyze market trends, and gain insights for smarter financial decisions.
               </p>
             </div>
             <div className="bg-black/50 p-6 rounded-xl text-center border border-gray-700 hover:bg-black/60 transition shadow-lg">
               <h3 className="text-xl font-bold text-[#facc15]">💰 Investment Simulator</h3>
               <p className="text-gray-400 mt-3">
-                Backtest **historical stock portfolios** to analyze **potential performance** under different market conditions.
+                Backtest historical stock portfolios to analyze potential performance under different market conditions.
               </p>
             </div>
             <div className="bg-black/50 p-6 rounded-xl text-center border border-gray-700 hover:bg-black/60 transition shadow-lg">
               <h3 className="text-xl font-bold text-[#facc15]">🤖 AI Market Insights</h3>
               <p className="text-gray-400 mt-3">
-                Gain **AI-generated summaries** on historical stock performance, market trends, and financial analysis.
+                Gain AI-generated summaries on historical stock performance, market trends, and financial analysis.
               </p>
             </div>
           </div>
