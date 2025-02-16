@@ -4,9 +4,9 @@ import { useState } from "react";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { FaInfoCircle } from "react-icons/fa";
-
-const StockChart = dynamic(() => import("./StockChart"), { ssr: false });
+import StockPriceDisplay from "../../components/StockLookup/StockPriceDisplay"; // ✅ Keeping this new file
+import StockSummary from "../../components/StockLookup/StockSummary"; // ✅ Keeping this new AI summary
+const StockChart = dynamic(() => import("./StockChart"), { ssr: false }); // ✅ Keeping the old chart
 
 export default function StockDataPage() {
   const [symbol, setSymbol] = useState("AAPL");
@@ -113,19 +113,7 @@ export default function StockDataPage() {
       </section>
 
       {/* 🔹 Display Closing Price at the Top */}
-      {closingPrice && (
-        <div className="bg-gray-900 p-5 mt-6 rounded-lg border border-gray-700 w-full max-w-lg text-center shadow-lg">
-          <h2 className="text-xl font-bold text-[#facc15] mb-2">📉 Closing Price</h2>
-          <p className="text-gray-400">
-            {closingDate && closingDate !== date
-              ? `No data for ${date}, showing closest available (${closingDate})`
-              : `Closing price on ${date}`}
-          </p>
-          <p className="text-3xl font-semibold text-white">
-            {closingPrice !== "No data available" ? `$${closingPrice}` : closingPrice}
-          </p>
-        </div>
-      )}
+      <StockPriceDisplay closingPrice={closingPrice} closingDate={closingDate} selectedDate={date} />
 
       {/* 🔹 Search Section */}
       <div className="mt-8 bg-gray-900 p-6 rounded-xl w-full max-w-3xl border border-gray-700 shadow-lg">
@@ -139,12 +127,7 @@ export default function StockDataPage() {
       </div>
 
       {/* 🔹 AI-Generated Stock Analysis */}
-      {summary && (
-        <div className="bg-gray-900 p-6 mt-6 rounded-lg border border-gray-700 w-full max-w-2xl shadow-lg">
-          <h2 className="text-xl font-bold text-[#facc15] mb-3">🤖 AI Stock Analysis</h2>
-          <p className="text-gray-300">{summary}</p>
-        </div>
-      )}
+      <StockSummary summary={summary} />
 
       {/* 🔹 Stock Price Chart */}
       {data.historical.length > 0 && (
