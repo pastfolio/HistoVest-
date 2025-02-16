@@ -16,12 +16,14 @@ export default function StockDataPage() {
   const [closingPrice, setClosingPrice] = useState(null);
   const [closingDate, setClosingDate] = useState(null);
   const [summary, setSummary] = useState("");
-  const [error, setError] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const fetchStockData = async () => {
     setLoading(true);
-    setError("");
+    setSummaryLoading(true);
+    setSearched(true);
     setData({ daily: null, historical: [], metadata: null });
     setSummary("");
     setClosingPrice(null);
@@ -59,7 +61,6 @@ export default function StockDataPage() {
           setClosingPrice(null);
         }
       } else {
-        setError(stockResult.error || "Failed to fetch stock data");
         return;
       }
 
@@ -73,14 +74,12 @@ export default function StockDataPage() {
 
       if (summaryResponse.ok) {
         setSummary(summaryResult.summary || "No summary available.");
-      } else {
-        setError(summaryResult.error || "Failed to fetch summary.");
       }
     } catch (err) {
       console.error("Fetch Error:", err);
-      setError("Failed to fetch data. Please check your network or try again.");
     } finally {
       setLoading(false);
+      setTimeout(() => setSummaryLoading(false), 2000); // Add delay for smooth transition
     }
   };
 
@@ -132,16 +131,16 @@ export default function StockDataPage() {
         </button>
       </div>
 
-      {/* 🔹 Closing Price (Only Appears After Search) */}
-      {closingPrice && (
-        <div className="max-w-3xl mx-auto mt-6 text-center text-3xl font-semibold text-white">
+      {/* 🔹 Closing Price (Smooth Load-In) */}
+      {searched && closingPrice && (
+        <div className="max-w-3xl mx-auto mt-6 text-center text-3xl font-semibold text-white transition-opacity duration-500">
           📉 Closing Price: <span className="text-[#facc15]">${closingPrice}</span> on {closingDate}
         </div>
       )}
 
-      {/* 🔹 Full-Width Stock Chart */}
-      {data.historical.length > 0 && (
-        <div className="max-w-6xl mx-auto mt-8">
+      {/* 🔹 Full-Width Stock Chart (Smooth Load-In) */}
+      {searched && data.historical.length > 0 && (
+        <div className="max-w-6xl mx-auto mt-8 transition-opacity duration-700">
           <h2 className="text-xl font-bold text-[#facc15] mb-4 text-center">📈 Stock Price Chart</h2>
           <div className="w-full">
             <StockChart data={data.historical} selectedDate={date} range={range} />
@@ -149,12 +148,16 @@ export default function StockDataPage() {
         </div>
       )}
 
-      {/* 🔹 Full-Width AI Summary */}
-      {summary && (
-        <div className="max-w-6xl mx-auto mt-8">
+      {/* 🔹 Full-Width AI Summary (Pulsing Loading Effect) */}
+      {searched && (
+        <div className="max-w-6xl mx-auto mt-8 transition-opacity duration-700">
           <h2 className="text-xl font-bold text-[#facc15] mb-4 text-center">🤖 AI Stock Analysis</h2>
           <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 text-lg text-gray-300 leading-relaxed">
-            {summary}
+            {summaryLoading ? (
+              <p className="text-gray-400 text-center animate-pulse">⏳ Generating AI-powered summary...</p>
+            ) : (
+              summary || "No summary available."
+            )}
           </div>
         </div>
       )}
