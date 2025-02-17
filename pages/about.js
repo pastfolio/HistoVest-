@@ -1,64 +1,41 @@
+import Head from "next/head";
+
 const About = () => {
     return (
-        <div className="container mx-auto py-8 px-6">
+        <div className="max-w-5xl mx-auto py-12 px-6 text-gray-300">
+            {/* 🔹 Meta Tags for SEO */}
+            <Head>
+                <title>About HistoVest - AI-Powered Historical Stock Insights</title>
+                <meta name="description" content="Learn more about HistoVest, the AI-powered platform that helps you analyze historical investments, market trends, and stock data." />
+                <meta name="keywords" content="HistoVest, historical stock data, AI stock analysis, investment research, stock market trends" />
+                <meta property="og:title" content="About HistoVest - AI-Powered Historical Stock Insights" />
+                <meta property="og:description" content="Discover how HistoVest helps investors and researchers explore historical stock market trends using AI-powered insights and data visualization." />
+                <meta property="og:image" content="/histovest-banner.png" />
+                <meta property="og:url" content="https://histovest.com/about" />
+            </Head>
+
             {/* About Section */}
             <section className="mb-12">
-                <h1 className="text-3xl font-bold mb-4">About Us</h1>
-                <p className="text-lg text-gray-700 mb-4">
-                    Welcome to HistoVest, the ultimate platform for exploring and understanding historical investments and their outcomes. 
-                    HistoVest is designed to empower users by providing tools to simulate past stock data, enabling them to analyze market 
-                    trends, strategies, and patterns from key moments in history.
-                </p>
-                <p className="text-lg text-gray-700">
-                    Our platform goes beyond just data. HistoVest leverages advanced AI-powered feedback to guide users through their 
-                    learning journey. With AI-driven insights, users can receive detailed descriptions of historical investment decisions, 
-                    their outcomes, and the factors that influenced those results. Whether you’re a student, investor, or researcher, HistoVest 
-                    offers an engaging way to educate yourself and deepen your understanding of the financial world.
+                <h1 className="text-4xl font-extrabold mb-6 text-[#facc15]">📌 About Us</h1>
+                <p className="text-lg leading-relaxed">
+                    Welcome to <span className="font-semibold text-white">HistoVest</span>, the ultimate platform for exploring and understanding historical investments 
+                    and their outcomes. HistoVest empowers users by providing interactive tools to simulate past stock data, enabling them to analyze market 
+                    trends, strategies, and key moments in financial history.
                 </p>
             </section>
 
-            {/* Contact Us Section */}
+            {/* Contact Section */}
             <section className="mb-12">
-                <h2 className="text-2xl font-semibold mb-4">Contact Us</h2>
-                <p className="text-lg text-gray-700">
-                    Have questions or need assistance? Feel free to reach out to us via email:
+                <h2 className="text-3xl font-bold mb-4 text-[#facc15]">📩 Contact Us</h2>
+                <p className="text-lg">
+                    Have questions? Reach out to us via email:
                 </p>
-                <ul className="list-none mt-4 text-lg text-gray-700">
-                    <li>
-                        <strong>Email:</strong>{" "}
-                        <a href="mailto:historicalfinanceinformation@gmail.com" className="text-blue-500">
-                            historicalfinanceinformation@gmail.com
-                        </a>
-                    </li>
-                </ul>
-            </section>
-
-            {/* Socials Section */}
-            <section>
-                <h2 className="text-2xl font-semibold mb-4">Follow Us</h2>
-                <p className="text-lg text-gray-700">
-                    Stay connected and follow us on our social media platforms:
+                <p className="text-lg mt-4 font-semibold">
+                    📧 Email:{" "}
+                    <a href="mailto:historicalfinanceinformation@gmail.com" className="text-[#facc15] underline">
+                        historicalfinanceinformation@gmail.com
+                    </a>
                 </p>
-                <ul className="list-none mt-4 text-lg text-gray-700">
-                    <li>
-                        <strong>TikTok:</strong>{" "}
-                        <a href="https://www.tiktok.com/@histovest" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            @histovest
-                        </a>
-                    </li>
-                    <li>
-                        <strong>Instagram:</strong>{" "}
-                        <a href="https://www.instagram.com/histovest1" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            histovest1
-                        </a>
-                    </li>
-                    <li>
-                        <strong>YouTube:</strong>{" "}
-                        <a href="https://www.youtube.com/@histovest" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            @histovest
-                        </a>
-                    </li>
-                </ul>
             </section>
         </div>
     );

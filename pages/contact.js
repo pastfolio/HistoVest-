@@ -1,91 +1,50 @@
 const Contact = () => {
     return (
-        <div className="container mx-auto py-8 px-6">
-            {/* Page Title */}
-            <h1 className="text-3xl font-bold mb-6">Contact Us</h1>
-            
-            {/* Contact Information Section */}
+        <div className="max-w-5xl mx-auto py-12 px-6 text-gray-300">
+            <h1 className="text-4xl font-extrabold mb-6 text-[#facc15]">📞 Contact Us</h1>
+
+            {/* Contact Information */}
             <section className="mb-12">
-                <h2 className="text-2xl font-semibold mb-4">Get in Touch</h2>
-                <p className="text-lg text-gray-700 mb-4">
-                    Have questions, feedback, or need assistance? We’d love to hear from you! Reach out using the email below:
+                <h2 className="text-2xl font-bold mb-4 text-[#facc15]">📩 Get in Touch</h2>
+                <p className="text-lg">
+                    Have questions, feedback, or need assistance? We’d love to hear from you!
                 </p>
-                <ul className="list-none text-lg text-gray-700">
-                    <li>
-                        <strong>Email:</strong>{" "}
-                        <a href="mailto:historicalfinanceinformation@gmail.com" className="text-blue-500">
-                            historicalfinanceinformation@gmail.com
-                        </a>
-                    </li>
+                <p className="text-lg mt-4 font-semibold">
+                    📧 Email:{" "}
+                    <a href="mailto:historicalfinanceinformation@gmail.com" className="text-[#facc15] underline">
+                        historicalfinanceinformation@gmail.com
+                    </a>
+                </p>
+            </section>
+
+            {/* Social Media */}
+            <section className="mb-12">
+                <h2 className="text-2xl font-bold mb-4 text-[#facc15]">🌎 Follow Us</h2>
+                <p className="text-lg">Stay connected with HistoVest on social media:</p>
+                <ul className="list-none mt-4 text-lg">
+                    <li><strong>🎵 TikTok:</strong> <a href="https://www.tiktok.com/@histovest" className="text-[#facc15] underline">@histovest</a></li>
+                    <li><strong>📸 Instagram:</strong> <a href="https://www.instagram.com/histovest1" className="text-[#facc15] underline">histovest1</a></li>
+                    <li><strong>🎥 YouTube:</strong> <a href="https://www.youtube.com/@histovest" className="text-[#facc15] underline">@histovest</a></li>
                 </ul>
             </section>
 
-            {/* Social Media Section */}
-            <section className="mb-12">
-                <h2 className="text-2xl font-semibold mb-4">Follow Us on Social Media</h2>
-                <p className="text-lg text-gray-700 mb-4">
-                    Stay updated with our latest features and announcements by following us:
-                </p>
-                <ul className="list-none text-lg text-gray-700">
-                    <li>
-                        <strong>TikTok:</strong>{" "}
-                        <a href="https://www.tiktok.com/@histovest" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            @histovest
-                        </a>
-                    </li>
-                    <li>
-                        <strong>Instagram:</strong>{" "}
-                        <a href="https://www.instagram.com/histovest1" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            histovest1
-                        </a>
-                    </li>
-                    <li>
-                        <strong>YouTube:</strong>{" "}
-                        <a href="https://www.youtube.com/@histovest" target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                            @histovest
-                        </a>
-                    </li>
-                </ul>
-            </section>
-
-            {/* Contact Form Section (Optional) */}
+            {/* Contact Form */}
             <section>
-                <h2 className="text-2xl font-semibold mb-4">Send Us a Message</h2>
+                <h2 className="text-2xl font-bold mb-4 text-[#facc15]">📬 Send Us a Message</h2>
                 <form className="space-y-4">
                     <div>
-                        <label htmlFor="name" className="block text-lg font-medium text-gray-700">Name</label>
-                        <input
-                            type="text"
-                            id="name"
-                            name="name"
-                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="Enter your name"
-                        />
+                        <label className="block text-lg font-medium">Name</label>
+                        <input type="text" className="w-full p-3 bg-gray-800 text-white rounded-md focus:ring-yellow-500" placeholder="Enter your name" />
                     </div>
                     <div>
-                        <label htmlFor="email" className="block text-lg font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="Enter your email"
-                        />
+                        <label className="block text-lg font-medium">Email</label>
+                        <input type="email" className="w-full p-3 bg-gray-800 text-white rounded-md focus:ring-yellow-500" placeholder="Enter your email" />
                     </div>
                     <div>
-                        <label htmlFor="message" className="block text-lg font-medium text-gray-700">Message</label>
-                        <textarea
-                            id="message"
-                            name="message"
-                            rows="4"
-                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="Type your message here"
-                        ></textarea>
+                        <label className="block text-lg font-medium">Message</label>
+                        <textarea rows="4" className="w-full p-3 bg-gray-800 text-white rounded-md focus:ring-yellow-500" placeholder="Type your message"></textarea>
                     </div>
-                    <button
-                        type="submit"
-                        className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600"
-                    >
+                    <button type="submit" className="px-6 py-3 bg-[#facc15] text-black font-bold rounded-md hover:bg-yellow-600 transition">
                         Submit
                     </button>
                 </form>
