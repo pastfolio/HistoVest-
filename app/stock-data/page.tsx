@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import StockPriceDisplay from "../../components/StockLookup/StockPriceDisplay";
@@ -79,35 +79,31 @@ export default function StockDataPage() {
       console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
-      setTimeout(() => setSummaryLoading(false), 2000); // Add delay for smooth transition
+      setTimeout(() => setSummaryLoading(false), 2000);
     }
   };
 
+  useEffect(() => {
+    if (searched) {
+      fetchStockData();
+    }
+  }, [range]);
+
   return (
     <div className="min-h-screen bg-[#111] text-gray-200 px-6">
-      {/* 🔹 Meta Tags for SEO */}
       <Head>
         <title>HistoVest - AI-Powered Historical Stock Research</title>
-        <meta name="description" content="Analyze stock performance on any date and understand what influenced price changes. Get AI-generated insights on market trends, economic events, and financial news." />
-        <meta property="og:title" content="HistoVest - AI-Powered Historical Stock Research" />
-        <meta property="og:description" content="Analyze stock performance on a specific date with AI-generated insights into market trends and financial events. Research smarter with HistoVest." />
       </Head>
 
-      {/* 🔹 Page Header */}
       <section className="text-center max-w-5xl mx-auto py-6">
         <h1 className="text-5xl font-extrabold text-[#facc15]">📊 Historical Stock Research</h1>
-        <p className="text-lg text-gray-400 mt-2">
-          Enter a stock symbol and date to see its past performance. Get AI-driven insights on market trends and financial events.
-        </p>
       </section>
 
-      {/* 🔹 Stock Lookup Form */}
       <div className="max-w-3xl mx-auto mt-6 flex flex-wrap gap-4 justify-center items-center">
         <input 
           type="text" 
           value={symbol} 
           onChange={(e) => setSymbol(e.target.value.toUpperCase())} 
-          placeholder="Stock Symbol (e.g., AAPL)" 
           className="bg-gray-800 text-white p-3 text-lg rounded-md border border-gray-700 text-center w-36" 
         />
         <input 
@@ -116,43 +112,42 @@ export default function StockDataPage() {
           onChange={(e) => setDate(e.target.value)} 
           className="bg-gray-800 text-white p-3 text-lg rounded-md border border-gray-700 text-center" 
         />
-        <input 
-          type="number" 
-          value={range} 
-          onChange={(e) => setRange(parseInt(e.target.value))} 
-          placeholder="Days" 
-          className="bg-gray-800 text-white p-3 text-lg rounded-md border border-gray-700 text-center w-20" 
-        />
-        <button 
-          onClick={fetchStockData} 
-          className="bg-[#facc15] text-black font-bold py-3 px-6 rounded-md hover:bg-yellow-600 transition"
-        >
+        <button onClick={fetchStockData} className="bg-[#facc15] text-black font-bold py-3 px-6 rounded-md hover:bg-yellow-600 transition">
           Search
         </button>
       </div>
 
-      {/* 🔹 Closing Price (Smooth Load-In) */}
       {searched && closingPrice && (
-        <div className="max-w-3xl mx-auto mt-6 text-center text-3xl font-semibold text-white transition-opacity duration-500">
+        <div className="max-w-3xl mx-auto mt-6 text-center text-3xl font-semibold text-white">
           📉 Closing Price: <span className="text-[#facc15]">${closingPrice}</span> on {closingDate}
         </div>
       )}
 
-      {/* 🔹 Full-Width Stock Chart (Smooth Load-In) */}
       {searched && data.historical.length > 0 && (
-        <div className="max-w-6xl mx-auto mt-8 transition-opacity duration-700">
-          <h2 className="text-xl font-bold text-[#facc15] mb-4 text-center">📈 Stock Price Chart</h2>
-          <div className="w-full">
-            <StockChart data={data.historical} selectedDate={date} range={range} />
+        <>
+          {/* 🔹 Timeframe Selection (TOP BUTTONS WORK) */}
+          <div className="flex justify-center gap-3 mb-4">
+            {[30, 60, 90, 180, 365, 1825, 3650].map((days) => (
+              <button
+                key={days}
+                onClick={() => setRange(days)}
+                className={`px-4 py-2 rounded-md font-semibold ${
+                  range === days ? "bg-[#facc15] text-black" : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                {days === 30 ? "1M" : days === 60 ? "2M" : days === 90 ? "3M" : days === 180 ? "6M" : days === 365 ? "1Y" : days === 1825 ? "5Y" : "10Y"}
+              </button>
+            ))}
           </div>
-        </div>
+
+          <StockChart data={data.historical} selectedDate={date} range={range} />
+        </>
       )}
 
-      {/* 🔹 Full-Width AI Summary (Pulsing Loading Effect) */}
       {searched && (
-        <div className="max-w-6xl mx-auto mt-8 transition-opacity duration-700">
+        <div className="max-w-6xl mx-auto mt-8">
           <h2 className="text-xl font-bold text-[#facc15] mb-4 text-center">🤖 AI Stock Analysis</h2>
-          <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 text-lg text-gray-300 leading-relaxed">
+          <div className="bg-gray-900 p-6 rounded-lg text-lg text-gray-300">
             {summaryLoading ? (
               <p className="text-gray-400 text-center animate-pulse">⏳ Generating AI-powered summary...</p>
             ) : (

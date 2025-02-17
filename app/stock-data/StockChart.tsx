@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Line } from "react-chartjs-2";
 import {
@@ -31,25 +33,26 @@ export default function StockChart({ data, selectedDate, range }: any) {
     return <p style={{ textAlign: "center", color: "#D4AF37" }}>No data available for this range.</p>;
   }
 
+  // Chart Data
   const chartData = {
     labels: data.map((point: any) => point.date),
     datasets: [
       {
         label: `Closing Prices: Past ${range} Days (Up to ${selectedDate})`,
         data: data.map((point: any) => point.close),
-        borderColor: "#1E90FF", // Blue line
-        backgroundColor: "rgba(30, 144, 255, 0.2)", // Light blue fill
+        borderColor: "#1E90FF",
+        backgroundColor: "rgba(30, 144, 255, 0.2)",
         borderWidth: 2,
-        tension: 0.4, // Smooth line
+        tension: 0.4,
         fill: true,
-        pointRadius: 0, // Hide points for a cleaner look
+        pointRadius: 0,
       },
     ],
   };
 
   const options = {
     responsive: true,
-    maintainAspectRatio: false, // Allows setting custom height
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       title: { display: true, text: "Stock Price Chart", font: { size: 18, weight: "bold" }, color: "#D4AF37" },
@@ -60,12 +63,12 @@ export default function StockChart({ data, selectedDate, range }: any) {
         time: { unit: range > 60 ? "month" : range > 10 ? "week" : "day" },
         title: { display: true, text: "Date", font: { size: 14 }, color: "#D4AF37" },
         ticks: { color: "#D4AF37" },
-        grid: { color: "#555" }, // Grey grid lines
+        grid: { color: "#555" },
       },
       y: {
         title: { display: true, text: "Price (USD)", font: { size: 14 }, color: "#D4AF37" },
         ticks: { color: "#D4AF37" },
-        grid: { color: "#555" }, // Grey grid lines
+        grid: { color: "#555" },
       },
     },
     interaction: { mode: "index", intersect: false },
@@ -73,6 +76,7 @@ export default function StockChart({ data, selectedDate, range }: any) {
 
   return (
     <div style={{ backgroundColor: "#1A1A1A", padding: "20px", borderRadius: "8px" }}>
+      {/* Stock Chart */}
       <div style={{ height: "400px" }}>
         <Line data={chartData} options={options} />
       </div>
