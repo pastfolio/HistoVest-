@@ -19,7 +19,7 @@ export default function HistoricalStockSimulator() {
   const router = useRouter();
   const { data } = router.query;
 
-  // ✅ Main state
+  // ✅ State Variables
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -31,66 +31,19 @@ export default function HistoricalStockSimulator() {
   const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [shortUrl, setShortUrl] = useState<string>("");
 
-  // ✅ Load data from URL when the page loads
-  useEffect(() => {
-    if (data) {
-      try {
-        const decodedData = JSON.parse(atob(data as string));
-
-        setStocks(decodedData.stocks || [{ symbol: "", percentage: "" }]);
-        setStartDate(decodedData.startDate || "");
-        setEndDate(decodedData.endDate || "");
-        setInvestmentAmount(decodedData.investmentAmount || "100000");
-        setPortfolioEndValue(decodedData.portfolioEndValue ?? null);
-        setGrowth(decodedData.growth ?? null);
-        setSummary(decodedData.summary ?? null);
-      } catch (error) {
-        console.error("Error decoding portfolio data:", error);
-      }
-    }
-  }, [data]);
-
-  // ✅ Update URL whenever data changes (for shareable links)
-  useEffect(() => {
-    if (!stocks.length || !startDate || !endDate || !investmentAmount) return;
-
-    const encodedData = btoa(
-      JSON.stringify({
-        stocks,
-        startDate,
-        endDate,
-        investmentAmount,
-        portfolioEndValue,
-        growth,
-        summary,
-      })
-    );
-
-    router.replace(
-      { pathname: "/historical-stock-simulator", query: { data: encodedData } },
-      undefined,
-      { shallow: true }
-    );
-  }, [stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary]);
-
-  // ✅ Ensure stock tickers persist correctly
+  // ✅ Handle Stock Input Changes
   const handleStockChange = (index: number, field: "symbol" | "percentage", value: string) => {
     setStocks((prevStocks) =>
       prevStocks.map((stock, i) => (i === index ? { ...stock, [field]: value } : stock))
     );
   };
 
-  // ✅ Add a stock to the portfolio
-  const addStock = () => {
-    if (stocks.length < 10) {
-      setStocks([...stocks, { symbol: "", percentage: "" }]);
-    }
-  };
-
-  // ✅ Prevent calculation when no stocks are selected
+  // ✅ Calculate Portfolio Function (Fixed)
   const calculatePortfolio = async () => {
-    if (stocks.length === 0 || stocks.every((stock) => stock.symbol.trim() === "")) {
+    if (stocks.length === 0 || stocks.every(stock => stock.symbol.trim() === "")) {
       setError("Please add at least one stock to calculate.");
       return;
     }
@@ -107,6 +60,10 @@ export default function HistoricalStockSimulator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stocks, startDate, endDate, investmentAmount }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch portfolio calculation.");
+      }
 
       const result = await response.json();
       setPortfolioEndValue(parseFloat(result.endValue));
@@ -131,6 +88,10 @@ export default function HistoricalStockSimulator() {
         body: JSON.stringify({ stocks, startDate, endDate }),
       });
 
+      if (!aiResponse.ok) {
+        throw new Error("Failed to fetch AI summary.");
+      }
+
       const aiResult = await aiResponse.json();
       setSummary(aiResult.summary);
       setLoadingSummary(false);
@@ -140,20 +101,64 @@ export default function HistoricalStockSimulator() {
     }
   };
 
-  // ✅ Generate shareable link
-  const shareUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/historical-stock-simulator?data=${btoa(
-          JSON.stringify({ stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary })
-        )}`
-      : "";
+  // ✅ Load Data from URL (Fix JSON Errors)
+  useEffect(() => {
+    if (data) {
+      try {
+        const decodedString = decodeURIComponent(data as string);
+        if (/^[A-Za-z0-9+/=]+$/.test(decodedString)) { // Check if valid Base64
+          const decodedData = JSON.parse(atob(decodedString));
 
-  // ✅ Format Growth with + or - sign
-  const formattedGrowth = growth !== null ? (growth >= 0 ? `+${growth}%` : `${growth}%`) : "--";
+          setStocks(decodedData.stocks || [{ symbol: "", percentage: "" }]);
+          setStartDate(decodedData.startDate || "");
+          setEndDate(decodedData.endDate || "");
+          setInvestmentAmount(decodedData.investmentAmount || "100000");
+          setPortfolioEndValue(decodedData.portfolioEndValue ?? null);
+          setGrowth(decodedData.growth ?? null);
+          setSummary(decodedData.summary ?? null);
+        }
+      } catch (error) {
+        console.error("Error decoding portfolio data:", error);
+      }
+    }
+  }, [data]);
 
-  // ✅ Copy Link to Clipboard
+  // ✅ Generate Shareable URL (Long Version in Browser Tab)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const encodedData = encodeURIComponent(btoa(JSON.stringify({
+        stocks,
+        startDate,
+        endDate,
+        investmentAmount,
+        portfolioEndValue,
+        growth,
+        summary,
+      })));
+      setShareUrl(`${window.location.origin}/historical-stock-simulator?data=${encodedData}`);
+
+      // ✅ Call TinyURL API to generate short URL
+      fetch("https://api.tinyurl.com/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer Pfs3maOMKqIzkeGOYG3J2XDPRgSGK66g04kXJ2JM7C4lh9UKl9kdURJmJDks",
+        },
+        body: JSON.stringify({ url: `${window.location.origin}/historical-stock-simulator?data=${encodedData}` }),
+      })
+        .then(response => response.json())
+        .then(result => {
+          if (result.data?.tiny_url) {
+            setShortUrl(result.data.tiny_url);
+          }
+        })
+        .catch(error => console.error("TinyURL Error:", error));
+    }
+  }, [stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary]);
+
+  // ✅ Copy to Clipboard (Uses Short URL)
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(shortUrl || shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -167,13 +172,16 @@ export default function HistoricalStockSimulator() {
       <div className="max-w-4xl w-full p-10 bg-black/30 border border-gray-700 shadow-2xl rounded-xl">
         <Header />
 
+        <h1 className="text-3xl font-bold text-center text-[#facc15]">📈 HistoVest Simulator</h1>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           <InvestmentInput investmentAmount={investmentAmount} setInvestmentAmount={setInvestmentAmount} />
-          <StockInput stocks={stocks} handleStockChange={handleStockChange} addStock={addStock} />
+          <StockInput stocks={stocks} handleStockChange={handleStockChange} addStock={() => setStocks([...stocks, { symbol: "", percentage: "" }])} />
         </div>
 
         <DateSelector startDate={startDate} setStartDate={setStartDate} endDate={endDate} setEndDate={setEndDate} />
 
+        {/* ✅ Now Works: Calculator Button */}
         <CalculatorButton calculatePortfolio={calculatePortfolio} loadingCalc={loadingCalc} />
 
         {error && <p className="text-red-500 text-lg mt-4">{error}</p>}
@@ -181,7 +189,7 @@ export default function HistoricalStockSimulator() {
         {portfolioEndValue !== null && (
           <PortfolioResults
             portfolioEndValue={portfolioEndValue}
-            growth={formattedGrowth}
+            growth={growth !== null ? (growth >= 0 ? `+${growth}%` : `${growth}%`) : "--"}
             summary={summary}
             loadingSummary={loadingSummary}
           />
