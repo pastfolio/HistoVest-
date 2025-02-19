@@ -23,13 +23,14 @@ export default function HistoricalStockSimulator() {
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [investmentAmount, setInvestmentAmount] = useState<string>(Number(100000).toLocaleString());
+  const [investmentAmount, setInvestmentAmount] = useState<string>("100000");
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
-  const [growth, setGrowth] = useState<string | null>(null);
+  const [growth, setGrowth] = useState<number | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingCalc, setLoadingCalc] = useState<boolean>(false);
   const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
   // ✅ Load data from URL when the page loads
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function HistoricalStockSimulator() {
         setStocks(decodedData.stocks || [{ symbol: "", percentage: "" }]);
         setStartDate(decodedData.startDate || "");
         setEndDate(decodedData.endDate || "");
-        setInvestmentAmount(Number(decodedData.investmentAmount || 100000).toLocaleString());
+        setInvestmentAmount(decodedData.investmentAmount || "100000");
         setPortfolioEndValue(decodedData.portfolioEndValue ?? null);
         setGrowth(decodedData.growth ?? null);
         setSummary(decodedData.summary ?? null);
@@ -54,23 +55,29 @@ export default function HistoricalStockSimulator() {
   useEffect(() => {
     if (!stocks.length || !startDate || !endDate || !investmentAmount) return;
 
-    const encodedData = btoa(JSON.stringify({
-      stocks,
-      startDate,
-      endDate,
-      investmentAmount: investmentAmount.replace(/,/g, ""),
-      portfolioEndValue,
-      growth,
-      summary,
-    }));
+    const encodedData = btoa(
+      JSON.stringify({
+        stocks,
+        startDate,
+        endDate,
+        investmentAmount,
+        portfolioEndValue,
+        growth,
+        summary,
+      })
+    );
 
-    router.replace({ pathname: "/historical-stock-simulator", query: { data: encodedData } }, undefined, { shallow: true });
+    router.replace(
+      { pathname: "/historical-stock-simulator", query: { data: encodedData } },
+      undefined,
+      { shallow: true }
+    );
   }, [stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary]);
 
   // ✅ Ensure stock tickers persist correctly
   const handleStockChange = (index: number, field: "symbol" | "percentage", value: string) => {
-    setStocks(prevStocks =>
-      prevStocks.map((stock, i) => i === index ? { ...stock, [field]: value } : stock)
+    setStocks((prevStocks) =>
+      prevStocks.map((stock, i) => (i === index ? { ...stock, [field]: value } : stock))
     );
   };
 
@@ -83,7 +90,7 @@ export default function HistoricalStockSimulator() {
 
   // ✅ Prevent calculation when no stocks are selected
   const calculatePortfolio = async () => {
-    if (stocks.length === 0 || stocks.every(stock => stock.symbol.trim() === "")) {
+    if (stocks.length === 0 || stocks.every((stock) => stock.symbol.trim() === "")) {
       setError("Please add at least one stock to calculate.");
       return;
     }
@@ -98,7 +105,7 @@ export default function HistoricalStockSimulator() {
       const response = await fetch("/api/calculate-portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks, startDate, endDate, investmentAmount: investmentAmount.replace(/,/g, "") }),
+        body: JSON.stringify({ stocks, startDate, endDate, investmentAmount }),
       });
 
       const result = await response.json();
@@ -133,6 +140,24 @@ export default function HistoricalStockSimulator() {
     }
   };
 
+  // ✅ Generate shareable link
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/historical-stock-simulator?data=${btoa(
+          JSON.stringify({ stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary })
+        )}`
+      : "";
+
+  // ✅ Format Growth with + or - sign
+  const formattedGrowth = growth !== null ? (growth >= 0 ? `+${growth}%` : `${growth}%`) : "--";
+
+  // ✅ Copy Link to Clipboard
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-white flex justify-center items-center px-6">
       <Head>
@@ -141,11 +166,6 @@ export default function HistoricalStockSimulator() {
 
       <div className="max-w-4xl w-full p-10 bg-black/30 border border-gray-700 shadow-2xl rounded-xl">
         <Header />
-
-        <h1 className="text-3xl font-bold text-center text-[#facc15]">📈 HistoVest Simulator</h1>
-        <p className="text-gray-300 text-center mt-2">
-          Simulate stock portfolios, backtest historical investments, and optimize strategies with real stock data.
-        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           <InvestmentInput investmentAmount={investmentAmount} setInvestmentAmount={setInvestmentAmount} />
@@ -156,34 +176,27 @@ export default function HistoricalStockSimulator() {
 
         <CalculatorButton calculatePortfolio={calculatePortfolio} loadingCalc={loadingCalc} />
 
-        {/* Display error message if stocks are missing */}
         {error && <p className="text-red-500 text-lg mt-4">{error}</p>}
 
-        {/* Portfolio Results Section */}
         {portfolioEndValue !== null && (
-          <PortfolioResults 
-            portfolioEndValue={portfolioEndValue} 
-            growth={growth} 
-            summary={summary} 
-            loadingSummary={loadingSummary} 
+          <PortfolioResults
+            portfolioEndValue={portfolioEndValue}
+            growth={formattedGrowth}
+            summary={summary}
+            loadingSummary={loadingSummary}
           />
         )}
 
-        {/* Shareable Link Section */}
-        <div className="mt-6 text-center">
-          <button 
-            onClick={() => {
-              const link = `${window.location.origin}/historical-stock-simulator?data=${btoa(
-                JSON.stringify({ stocks, startDate, endDate, investmentAmount: investmentAmount.replace(/,/g, ""), portfolioEndValue, growth, summary })
-              )}`;
-              navigator.clipboard.writeText(link);
-              alert("🔗 Link copied to clipboard!");
-            }}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg"
-          >
-            Copy Shareable Link
-          </button>
-        </div>
+        {portfolioEndValue !== null && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={copyToClipboard}
+              className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300"
+            >
+              {copied ? "✅ Link Copied!" : "📋 Copy Shareable Link"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
