@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import Header from "../components/Header";
 import InvestmentInput from "../components/InvestmentInput";
@@ -14,11 +15,15 @@ interface Stock {
   percentage: string;
 }
 
-export default function Simulator() {
+export default function HistoricalStockSimulator() {
+  const router = useRouter();
+  const { data } = router.query;
+
+  // ✅ Main state
   const [stocks, setStocks] = useState<Stock[]>([{ symbol: "", percentage: "" }]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [investmentAmount, setInvestmentAmount] = useState<string>(Number(100000).toLocaleString()); // ✅ Default with commas
+  const [investmentAmount, setInvestmentAmount] = useState<string>(Number(100000).toLocaleString());
   const [portfolioEndValue, setPortfolioEndValue] = useState<number | null>(null);
   const [growth, setGrowth] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -26,28 +31,60 @@ export default function Simulator() {
   const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Format investment input with commas while typing
-  const handleInvestmentChange = (value: string) => {
-    const numericValue = value.replace(/,/g, ""); // Remove existing commas
-    if (!isNaN(Number(numericValue))) {
-      setInvestmentAmount(Number(numericValue).toLocaleString()); // Re-add commas
+  // ✅ Load data from URL when the page loads
+  useEffect(() => {
+    if (data) {
+      try {
+        const decodedData = JSON.parse(atob(data as string));
+
+        setStocks(decodedData.stocks || [{ symbol: "", percentage: "" }]);
+        setStartDate(decodedData.startDate || "");
+        setEndDate(decodedData.endDate || "");
+        setInvestmentAmount(Number(decodedData.investmentAmount || 100000).toLocaleString());
+        setPortfolioEndValue(decodedData.portfolioEndValue ?? null);
+        setGrowth(decodedData.growth ?? null);
+        setSummary(decodedData.summary ?? null);
+      } catch (error) {
+        console.error("Error decoding portfolio data:", error);
+      }
+    }
+  }, [data]);
+
+  // ✅ Update URL whenever data changes (for shareable links)
+  useEffect(() => {
+    if (!stocks.length || !startDate || !endDate || !investmentAmount) return;
+
+    const encodedData = btoa(JSON.stringify({
+      stocks,
+      startDate,
+      endDate,
+      investmentAmount: investmentAmount.replace(/,/g, ""),
+      portfolioEndValue,
+      growth,
+      summary,
+    }));
+
+    router.replace({ pathname: "/historical-stock-simulator", query: { data: encodedData } }, undefined, { shallow: true });
+  }, [stocks, startDate, endDate, investmentAmount, portfolioEndValue, growth, summary]);
+
+  // ✅ Ensure stock tickers persist correctly
+  const handleStockChange = (index: number, field: "symbol" | "percentage", value: string) => {
+    setStocks(prevStocks =>
+      prevStocks.map((stock, i) => i === index ? { ...stock, [field]: value } : stock)
+    );
+  };
+
+  // ✅ Add a stock to the portfolio
+  const addStock = () => {
+    if (stocks.length < 10) {
+      setStocks([...stocks, { symbol: "", percentage: "" }]);
     }
   };
 
-  // ✅ Validate user input before calculating
-  const validateInputs = () => {
-    if (stocks.some(stock => stock.symbol.trim() === "")) return "Please select a valid stock symbol.";
-    if (new Set(stocks.map(stock => stock.symbol)).size !== stocks.length) return "Duplicate stock symbols detected.";
-    if (new Date(startDate) >= new Date(endDate)) return "Start date must be before the end date.";
-    if (Number(investmentAmount.replace(/,/g, "")) <= 0) return "Investment amount must be greater than zero.";
-    return null;
-  };
-
-  // ✅ Function to Calculate Portfolio Performance
+  // ✅ Prevent calculation when no stocks are selected
   const calculatePortfolio = async () => {
-    const validationError = validateInputs();
-    if (validationError) {
-      setError(validationError);
+    if (stocks.length === 0 || stocks.every(stock => stock.symbol.trim() === "")) {
+      setError("Please add at least one stock to calculate.");
       return;
     }
 
@@ -64,25 +101,21 @@ export default function Simulator() {
         body: JSON.stringify({ stocks, startDate, endDate, investmentAmount: investmentAmount.replace(/,/g, "") }),
       });
 
-      if (!response.ok) throw new Error("Failed to calculate portfolio");
-
       const result = await response.json();
       setPortfolioEndValue(parseFloat(result.endValue));
       setGrowth(result.growth);
       setLoadingCalc(false);
-
-      // ✅ After calculation, trigger AI summary generation
       generateSummary();
     } catch (err) {
-      console.error("Error calculating portfolio:", err);
       setError("An error occurred. Please try again.");
       setLoadingCalc(false);
     }
   };
 
-  // ✅ AI Summary Generation Function
+  // ✅ Generate AI Summary
   const generateSummary = async () => {
     setLoadingSummary(true);
+    setSummary(null);
 
     try {
       const aiResponse = await fetch("/api/generate-summary", {
@@ -91,13 +124,10 @@ export default function Simulator() {
         body: JSON.stringify({ stocks, startDate, endDate }),
       });
 
-      if (!aiResponse.ok) throw new Error("Failed to generate portfolio summary");
-
       const aiResult = await aiResponse.json();
       setSummary(aiResult.summary);
       setLoadingSummary(false);
     } catch (err) {
-      console.error("Error generating AI summary:", err);
       setError("An error occurred generating the portfolio summary.");
       setLoadingSummary(false);
     }
@@ -107,64 +137,53 @@ export default function Simulator() {
     <div className="min-h-screen bg-[#0D0D0D] text-white flex justify-center items-center px-6">
       <Head>
         <title>HistoVest Stock Simulator - Backtest Historical Investments</title>
-        <meta name="description" content="Simulate stock portfolios, backtest historical investments, and optimize strategies with real stock data. HistoVest helps investors make data-driven decisions." />
-        <meta name="keywords" content="stock simulator, investment backtesting, historical stock performance, portfolio analysis, finance tools, stock market trends, backtesting platform, trading simulation, investment strategies, historical stock data" />
-        <meta property="og:title" content="HistoVest Stock Simulator - Backtest Investments" />
-        <meta property="og:description" content="Test historical stock performance, optimize portfolios, and refine investment strategies with real stock data." />
-        <meta property="og:image" content="/public/histovest-thumbnail.jpg" />
-        <meta property="og:url" content="https://yourwebsite.com/historical-stock-simulator" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="HistoVest Stock Simulator" />
-        <meta name="twitter:description" content="Backtest historical investments and optimize trading strategies with real stock market data." />
-        <meta name="twitter:image" content="/public/histovest-thumbnail.jpg" />
-        <link rel="canonical" href="https://yourwebsite.com/historical-stock-simulator" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
-      
-      <div className="max-w-4xl w-full p-10 bg-black/30 backdrop-blur-lg border border-gray-700 shadow-2xl rounded-xl">
+
+      <div className="max-w-4xl w-full p-10 bg-black/30 border border-gray-700 shadow-2xl rounded-xl">
         <Header />
-        
+
+        <h1 className="text-3xl font-bold text-center text-[#facc15]">📈 HistoVest Simulator</h1>
+        <p className="text-gray-300 text-center mt-2">
+          Simulate stock portfolios, backtest historical investments, and optimize strategies with real stock data.
+        </p>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <InvestmentInput 
-            investmentAmount={investmentAmount} 
-            setInvestmentAmount={handleInvestmentChange} 
-          />
-          <StockInput 
-            stocks={stocks} 
-            handleStockChange={(index, field, value) => {
-              const updatedStocks = [...stocks];
-              updatedStocks[index][field] = field === "symbol" ? value.toUpperCase() : value;
-              setStocks(updatedStocks);
-            }} 
-            addStock={() => {
-              if (stocks.length < 10) setStocks([...stocks, { symbol: "", percentage: "" }]);
-            }} 
-          />
+          <InvestmentInput investmentAmount={investmentAmount} setInvestmentAmount={setInvestmentAmount} />
+          <StockInput stocks={stocks} handleStockChange={handleStockChange} addStock={addStock} />
         </div>
 
         <DateSelector startDate={startDate} setStartDate={setStartDate} endDate={endDate} setEndDate={setEndDate} />
 
         <CalculatorButton calculatePortfolio={calculatePortfolio} loadingCalc={loadingCalc} />
 
-        {/* ✅ Portfolio Results Section */}
+        {/* Display error message if stocks are missing */}
+        {error && <p className="text-red-500 text-lg mt-4">{error}</p>}
+
+        {/* Portfolio Results Section */}
         {portfolioEndValue !== null && (
-          <div className="mt-8 bg-black/40 p-6 rounded-lg border border-gray-600 shadow-lg">
-            <h3 className="text-xl font-bold text-[#facc15] flex items-center gap-2">
-              💰 Total End Value: <span className="text-green-400">${portfolioEndValue.toLocaleString()}</span>
-            </h3>
-            <h3 className="text-lg font-bold text-[#facc15] flex items-center gap-2 mt-2">
-              📈 Growth: <span className="text-green-400">{growth}%</span>
-            </h3>
-            {loadingSummary && <p className="text-gray-400 text-sm mt-4">Generating Portfolio Summary...</p>}
-          </div>
+          <PortfolioResults 
+            portfolioEndValue={portfolioEndValue} 
+            growth={growth} 
+            summary={summary} 
+            loadingSummary={loadingSummary} 
+          />
         )}
 
-        {summary && (
-          <div className="mt-6 bg-[#111] border border-gray-600 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-[#facc15]">📊 Portfolio Analysis</h3>
-            <p className="text-gray-300 mt-2">{summary}</p>
-          </div>
-        )}
+        {/* Shareable Link Section */}
+        <div className="mt-6 text-center">
+          <button 
+            onClick={() => {
+              const link = `${window.location.origin}/historical-stock-simulator?data=${btoa(
+                JSON.stringify({ stocks, startDate, endDate, investmentAmount: investmentAmount.replace(/,/g, ""), portfolioEndValue, growth, summary })
+              )}`;
+              navigator.clipboard.writeText(link);
+              alert("🔗 Link copied to clipboard!");
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg"
+          >
+            Copy Shareable Link
+          </button>
+        </div>
       </div>
     </div>
   );

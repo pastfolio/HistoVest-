@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
-export default function StockLookup({ onSelectStock }) {
-  const [query, setQuery] = useState("");
+interface Props {
+  onSelectStock: (symbol: string) => void;
+  selectedSymbol?: string;
+}
+
+export default function StockLookup({ onSelectStock, selectedSymbol = "" }: Props) {
+  const [query, setQuery] = useState(selectedSymbol); // ✅ Keeps the selected stock symbol
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSearch = async (e) => {
-    const input = e.target.value;
+  useEffect(() => {
+    setQuery(selectedSymbol); // ✅ Ensure stock symbol is shown in the input
+  }, [selectedSymbol]);
+
+  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value.toUpperCase();
     setQuery(input);
 
     if (input.length < 2) {
@@ -30,7 +39,7 @@ export default function StockLookup({ onSelectStock }) {
     }
   };
 
-  const handleSelect = (symbol) => {
+  const handleSelect = (symbol: string) => {
     setQuery(symbol);
     setResults([]); // Hide dropdown when a stock is selected
     onSelectStock(symbol);

@@ -19,7 +19,11 @@ export default function StockInput({ stocks = [], handleStockChange, addStock }:
       {stocks.length > 0 ? (
         stocks.map((stock, index) => (
           <div key={index} className="flex space-x-3 items-center mt-3">
-            <StockLookup onSelectStock={(symbol) => handleStockChange(index, "symbol", symbol)} />
+            {/* ✅ Pass the selected symbol to ensure it persists */}
+            <StockLookup 
+              onSelectStock={(symbol) => handleStockChange(index, "symbol", symbol)}
+              selectedSymbol={stock.symbol} // ✅ Make sure StockLookup receives and displays it
+            />
             <input
               type="number"
               placeholder="%"
