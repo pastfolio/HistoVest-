@@ -16,19 +16,6 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseClient = supabase;
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-// ✅ Sector Stock Tickers
-const sectorTickers = {
-    "automotive": ["TSLA", "F", "GM", "TM"],
-    "technology": ["XLK", "AAPL", "MSFT", "NVDA"],
-    "finance": ["XLF", "JPM", "GS", "BAC"],
-    "energy": ["XLE", "XOM", "CVX", "COP"],
-    "crypto": ["BTC-USD", "ETH-USD", "COIN", "MSTR"],
-    "biotech": ["IBB", "BIIB", "VRTX", "REGN"],
-    "defense": ["ITA", "LMT", "RTX", "NOC"],
-    "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG"],
-    "semiconductors": ["SOXX", "NVDA", "TSM", "AMD"],
-};
-
 // ✅ API Route
 export default async function handler(req, res) {
     const { sector } = req.query;
@@ -61,25 +48,54 @@ export default async function handler(req, res) {
     console.log(`🔄 Fetching fresh data for ${sector}...`);
     const macroData = await getMacroData();
     const stockData = await getStockData(sector);
-    const aiAnalysis = await generateSectorAnalysis(sector, macroData, stockData);
 
-    const newData = {
-        sector,
-        macroData,
-        stockData,
-        aiAnalysis,
-        updated_at: new Date().toISOString(),
-    };
+    // ✅ Enable streaming response
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
 
-    // 4️⃣ Save new data to Supabase
-    await supabaseClient.from("sector_analysis").upsert([newData]);
+    // Send stock & macroeconomic data immediately
+    res.write(`data: ${JSON.stringify({ type: "stock-macro", data: { stockData, macroData } })}\n\n`);
+    res.flush(); // **Ensure the client gets this first!**
 
-    console.log(`✅ Cached new data for ${sector}`);
-    return res.status(200).json(newData);
+    console.log("🤖 Generating AI-powered sector analysis...");
+    
+    // ✅ AI Streaming Starts Here
+    const stream = await anthropic.messages.create({
+        model: "claude-3-opus-20240229",
+        max_tokens: 4096,
+        temperature: 0.7,
+        stream: true,
+        system: `Generate an institutional-grade analysis for ${sector} sector.`,
+        messages: [{ role: "user", content: "Start the analysis." }],
+    });
+
+    for await (const chunk of stream) {
+        if (chunk.type === "text") {
+            res.write(`data: ${JSON.stringify({ type: "aiText", text: chunk.text })}\n\n`);
+            res.flush();
+        }
+    }
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+    console.log("✅ AI analysis streamed successfully.");
 }
 
 // ✅ Fetch Stock Data from Yahoo Finance
 async function getStockData(sector) {
+    const sectorTickers = {
+        "automotive": ["TSLA", "F", "GM", "TM"],
+        "technology": ["XLK", "AAPL", "MSFT", "NVDA"],
+        "finance": ["XLF", "JPM", "GS", "BAC"],
+        "energy": ["XLE", "XOM", "CVX", "COP"],
+        "crypto": ["BTC-USD", "ETH-USD", "COIN", "MSTR"],
+        "biotech": ["IBB", "BIIB", "VRTX", "REGN"],
+        "defense": ["ITA", "LMT", "RTX", "NOC"],
+        "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG"],
+        "semiconductors": ["SOXX", "NVDA", "TSM", "AMD"],
+    };
+
     if (!sectorTickers[sector]) {
         console.warn(`⚠ No tickers found for ${sector}. Skipping stock data.`);
         return { [sector]: "Unavailable (No Ticker)" };
@@ -146,45 +162,4 @@ async function getMacroData() {
     }
 
     return macroData;
-}
-
-// ✅ AI-Powered Sector Analysis
-async function generateSectorAnalysis(sector, macroData, stockData) {
-    console.log("🤖 Sending AI request for full sector report...");
-
-    const systemPrompt = `
-    **Institutional-Grade Analysis of the ${sector} Sector (2025)**
-
-    **Macroeconomic Overview**
-    - GDP Growth: ${macroData["GDP Growth"] || "N/A"}%
-    - Inflation Rate: ${macroData["Inflation Rate"] || "N/A"}%
-    - Interest Rates: ${macroData["Interest Rates"] || "N/A"}%
-    - Oil Prices: ${macroData["Oil Prices"] || "N/A"} per barrel
-
-    **Stock Market Overview**
-    ${Object.entries(stockData).map(([ticker, data]) => `
-    - **${ticker}**
-      - Price: $${data.price || "N/A"}
-      - Market Cap: ${data.marketCap || "N/A"}
-      - P/E Ratio: ${data.peRatio || "N/A"}
-      - Dividend Yield: ${data.dividendYield || "N/A"}
-    `).join("\n")}
-
-    **Ensure this response is highly detailed and 4096 tokens long.**
-    `;
-
-    try {
-        const response = await anthropic.messages.create({
-            model: "claude-3-opus-20240229",
-            max_tokens: 4096,
-            temperature: 0.7,
-            system: systemPrompt,
-            messages: [{ role: "user", content: "Generate the full report based on the given information." }],
-        });
-
-        return response?.content || "❌ AI response failed.";
-    } catch (error) {
-        console.error("❌ AI Request Failed:", error.message);
-        return `❌ AI request failed: ${error.message}`;
-    }
 }
