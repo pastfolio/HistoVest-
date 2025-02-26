@@ -92,18 +92,95 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Fetch Stock Data from Yahoo Finance
+// Fetch Stock Data from Yahoo Finance with expanded sectors
 async function getStockData(sector: string) {
   const sectorTickers: { [key: string]: string[] } = {
+    // 🔹 Technology
+    "technology": ["XLK", "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN"],
+    "software": ["CRM", "ORCL", "SAP", "NOW"],
+    "semiconductors": ["SOXX", "NVDA", "TSM", "AMD", "INTC", "ASML"],
+    "cybersecurity": ["HACK", "PANW", "FTNT", "CRWD", "ZS"],
+    "AI & machine learning": ["AIQ", "NVDA", "MSFT", "GOOGL", "TSLA"],
+    "cloud computing": ["CLOU", "AMZN", "MSFT", "GOOGL", "IBM", "SNOW"],
+    "fintech": ["FINX", "PYPL", "SQ", "V", "MA", "ADYEY"],
+    "blockchain & crypto": ["BTC-USD", "ETH-USD", "COIN", "MSTR", "RIOT"],
+
+    // 🔹 Finance
+    "finance": ["XLF", "JPM", "GS", "BAC", "C", "MS", "WFC"],
+    "investment banking": ["GS", "MS", "JPM", "RJF"],
+    "asset management": ["BLK", "TROW", "STT", "SCHW"],
+    "insurance": ["PGR", "TRV", "AIG", "ALL", "MET"],
+    "real estate & REITs": ["XLRE", "O", "SPG", "PLD", "VICI"],
+
+    // 🔹 Energy
+    "energy": ["XLE", "XOM", "CVX", "COP", "BP", "RDSA"],
+    "oil & gas": ["XOP", "SLB", "HAL", "EOG", "PXD"],
+    "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG", "PLUG"],
+    "nuclear energy": ["URA", "CCJ", "NXE", "LEU"],
+
+    // 🔹 Healthcare
+    "healthcare": ["XLV", "JNJ", "PFE", "UNH", "MRNA"],
+    "biotech": ["IBB", "BIIB", "VRTX", "REGN", "AMGN"],
+    "pharmaceuticals": ["PFE", "MRK", "LLY", "BMY", "GILD"],
+    "medical devices": ["ISRG", "SYK", "BSX", "ZBH"],
+
+    // 🔹 Industrials
+    "industrials": ["XLI", "BA", "GE", "CAT", "DE"],
+    "defense & aerospace": ["ITA", "LMT", "RTX", "NOC", "GD"],
+    "construction & engineering": ["FLR", "J", "PWR", "ACM"],
+
+    // 🔹 Consumer Goods
+    "consumer discretionary": ["XLY", "TSLA", "AMZN", "NKE", "SBUX"],
+    "consumer staples": ["XLP", "PG", "KO", "PEP", "WMT"],
+    "luxury goods": ["LVMUY", "RACE", "TIF", "CPRI"],
+
+    // 🔹 Retail & E-commerce
+    "e-commerce": ["AMZN", "BABA", "MELI", "JD"],
+    "big box retail": ["WMT", "TGT", "COST", "DG"],
+    "department stores": ["M", "KSS", "JWN"],
+
+    // 🔹 Transportation
+    "transportation": ["IYT", "UPS", "FDX", "CSX"],
+    "airlines": ["JETS", "DAL", "AAL", "LUV"],
+    "railroads": ["UNP", "CSX", "NSC"],
+
+    // 🔹 Commodities & Materials
+    "metals & mining": ["XME", "BHP", "RIO", "FCX", "NEM"],
+    "gold & silver": ["GLD", "SLV", "NEM", "WPM"],
+    "agriculture": ["MOO", "BG", "ADM", "MOS"],
+
+    // 🔹 Utilities
+    "utilities": ["XLU", "NEE", "DUK", "SO", "D"],
+    "water utilities": ["AWK", "WTRG", "XYL"],
+
+    // 🔹 Media & Entertainment
+    "media": ["DIS", "NFLX", "CMCSA", "PARA"],
+    "gaming & esports": ["ESPO", "ATVI", "TTWO", "EA"],
+
+    // 🔹 Automobiles & EVs
     "automotive": ["TSLA", "F", "GM", "TM"],
-    "technology": ["XLK", "AAPL", "MSFT", "NVDA"],
-    "finance": ["XLF", "JPM", "GS", "BAC"],
-    "energy": ["XLE", "XOM", "CVX", "COP"],
-    "crypto": ["BTC-USD", "ETH-USD", "COIN", "MSTR"],
-    "biotech": ["IBB", "BIIB", "VRTX", "REGN"],
-    "defense": ["ITA", "LMT", "RTX", "NOC"],
-    "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG"],
-    "semiconductors": ["SOXX", "NVDA", "TSM", "AMD"],
+    "electric vehicles": ["TSLA", "NIO", "LI", "XPEV", "RIVN"],
+
+    // 🔹 Travel & Hospitality
+    "hotels & resorts": ["MAR", "HLT", "H", "WH"],
+    "cruise lines": ["CCL", "RCL", "NCLH"],
+
+    // 🔹 Aerospace & Space Tech
+    "space industry": ["ARKX", "SPCE", "MAXR", "LMT"],
+
+    // 🔹 Food & Beverage
+    "fast food": ["MCD", "YUM", "SBUX"],
+    "alcohol & beverage": ["STZ", "BUD", "SAM"],
+
+    // 🔹 Social Media & Communication
+    "social media": ["META", "TWTR", "SNAP", "PINS"],
+    "telecommunications": ["VZ", "T", "TMUS"],
+
+    // 🔹 Emerging Tech & Future Sectors
+    "quantum computing": ["IONQ", "QUBT", "NVDA"],
+    "web3 & decentralization": ["ETH-USD", "MATIC-USD", "UNI-USD"],
+    "clean energy": ["PBW", "TAN", "ICLN"],
+    "autonomous vehicles": ["TSLA", "GOOGL", "NVDA"],
   };
 
   if (!sectorTickers[sector]) {
