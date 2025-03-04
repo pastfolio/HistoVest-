@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Inter } from "next/font/google";
-import { FaBars } from "react-icons/fa"; // Hamburger icon
+import { FaBars } from "react-icons/fa"; // Only Bars icon needed
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "600", "700"] });
 
@@ -17,6 +17,7 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
   const [selectedSector, setSelectedSector] = useState<string>(initialSector || "");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null); // Keep for closing streams
 
   const sectors = [
     // Technology
@@ -60,13 +61,12 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
     if (!selectedSector) return;
 
     setLoading(true);
-    setStockData(null);
-    setMacroData(null);
-    setAiAnalysis("");
     setError(null);
+    setAiAnalysis(""); // Reset AI analysis for new sector, but keep stock/macro data if already loaded
 
     const url = `/api/sector-analyzer?sector=${encodeURIComponent(selectedSector)}`;
     const eventSource = new EventSource(url);
+    eventSourceRef.current = eventSource; // Store EventSource reference
 
     eventSource.onmessage = (event) => {
       if (event.data === "[DONE]") {
@@ -98,8 +98,12 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
       setLoading(false);
     };
 
-    return () => eventSource.close();
-  }, [selectedSector]);
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, [selectedSector]); // Re-run effect only when sector changes
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -116,6 +120,13 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
   const handleSectorSelect = (sector: string) => {
     setSelectedSector(sector);
     setIsDropdownOpen(false);
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close(); // Close existing stream
+    }
+  };
+
+  const handleChangeSector = () => {
+    setIsDropdownOpen(true); // Open the dropdown for changing sectors
   };
 
   return (
@@ -123,27 +134,37 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
       {/* Header */}
       <header className="mb-16 text-center">
         <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
-          Sector Analysis
+          HistoVest
         </h1>
         <p className="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">
           Access up to date, easy to read, institutional style analysis for every sector. Compare historical sector cycles to now. Up to date sector news.
         </p>
       </header>
 
-      {/* Custom Dropdown with Hamburger Icon */}
+      {/* Sector Selection and Change Sector Button */}
       <div className="flex justify-center mb-16 relative" ref={dropdownRef}>
-        <button
-          onClick={toggleDropdown}
-          disabled={loading}
-          className={`px-4 py-2 bg-gray-800 text-white font-semibold rounded-md shadow-md hover:bg-gray-700 transition duration-300 ${
-            loading ? "opacity-50 cursor-not-allowed" : ""
-          } flex items-center gap-2`}
-        >
-          <FaBars className="text-lg" />
-          {selectedSector
-            ? `${selectedSector.charAt(0).toUpperCase() + selectedSector.slice(1)}`
-            : "Select Sector"}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={toggleDropdown}
+            disabled={loading}
+            className={`px-4 py-2 bg-black text-white font-semibold rounded-md shadow-md hover:bg-gray-800 transition duration-300 ${
+              loading ? "opacity-50 cursor-not-allowed" : ""
+            } flex items-center gap-2`}
+          >
+            <FaBars className="text-lg" />
+            {selectedSector
+              ? `${selectedSector.charAt(0).toUpperCase() + selectedSector.slice(1)}`
+              : "Select Sector"}
+          </button>
+          {loading && (
+            <button
+              onClick={handleChangeSector}
+              className="px-4 py-2 bg-black text-white font-semibold rounded-md shadow-md hover:bg-gray-800 transition duration-300 flex items-center gap-2"
+            >
+              Change Sector
+            </button>
+          )}
+        </div>
         {isDropdownOpen && (
           <div className="absolute top-14 z-10 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-72 overflow-y-auto w-64">
             {sectors.map((sectorOption) => (
@@ -181,12 +202,12 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-lg">
                 <thead>
-                  <tr className="bg-gray-800">
-                    <th className="p-4 font-medium text-gray-300">Ticker</th>
-                    <th className="p-4 font-medium text-gray-300">Price ($)</th>
-                    <th className="p-4 font-medium text-gray-300">Market Cap</th>
-                    <th className="p-4 font-medium text-gray-300">P/E Ratio</th>
-                    <th className="p-4 font-medium text-gray-300">Dividend Yield</th>
+                  <tr className="bg-gray-800 text-gray-300"> {/* Dark blue header */}
+                    <th className="p-4 font-medium">Ticker</th>
+                    <th className="p-4 font-medium">Price ($)</th>
+                    <th className="p-4 font-medium">Market Cap</th>
+                    <th className="p-4 font-medium">P/E Ratio</th>
+                    <th className="p-4 font-medium">Dividend Yield</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,10 +215,10 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
                     <tr
                       key={ticker}
                       className={`border-b border-gray-800 ${
-                        index % 2 === 0 ? "bg-gray-850" : "bg-black"
-                      } hover:bg-gray-800 transition duration-200`}
+                        index % 2 === 0 ? "bg-black" : "bg-gray-850"
+                      } text-gray-200 hover:bg-gray-800 transition duration-200`}
                     >
-                      <td className="p-4 font-medium text-gray-200">{ticker}</td>
+                      <td className="p-4 font-medium">{ticker}</td>
                       <td className="p-4">{info.price || "N/A"}</td>
                       <td className="p-4">{info.marketCap || "N/A"}</td>
                       <td className="p-4">{info.peRatio || "N/A"}</td>
