@@ -16,6 +16,21 @@ const anthropic = new Anthropic({
   defaultHeaders: { "anthropic-version": "2023-06-01" },
 });
 
+// Custom fetch with timeout to handle Yahoo Finance's unreliable responses
+const fetchWithTimeout = async (url: string, options: any, timeoutMs: number = 15000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("🚀 API Request Received:", req.query);
 
@@ -92,95 +107,84 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Fetch Stock Data from Yahoo Finance with expanded sectors
+// Fetch Stock Data from Yahoo Finance with expanded sectors, formatted numbers, and retry logic
 async function getStockData(sector: string) {
-  const sectorTickers: { [key: string]: string[] } = {
-    // 🔹 Technology
+  const sectorTickers = {
     "technology": ["XLK", "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN"],
-    "software": ["CRM", "ORCL", "SAP", "NOW"],
     "semiconductors": ["SOXX", "NVDA", "TSM", "AMD", "INTC", "ASML"],
+    "software-as-a-service (SaaS)": ["CRM", "ORCL", "SAP", "NOW"],
     "cybersecurity": ["HACK", "PANW", "FTNT", "CRWD", "ZS"],
-    "AI & machine learning": ["AIQ", "NVDA", "MSFT", "GOOGL", "TSLA"],
     "cloud computing": ["CLOU", "AMZN", "MSFT", "GOOGL", "IBM", "SNOW"],
-    "fintech": ["FINX", "PYPL", "SQ", "V", "MA", "ADYEY"],
-    "blockchain & crypto": ["BTC-USD", "ETH-USD", "COIN", "MSTR", "RIOT"],
-
-    // 🔹 Finance
-    "finance": ["XLF", "JPM", "GS", "BAC", "C", "MS", "WFC"],
-    "investment banking": ["GS", "MS", "JPM", "RJF"],
-    "asset management": ["BLK", "TROW", "STT", "SCHW"],
-    "insurance": ["PGR", "TRV", "AIG", "ALL", "MET"],
-    "real estate & REITs": ["XLRE", "O", "SPG", "PLD", "VICI"],
-
-    // 🔹 Energy
-    "energy": ["XLE", "XOM", "CVX", "COP", "BP", "RDSA"],
-    "oil & gas": ["XOP", "SLB", "HAL", "EOG", "PXD"],
-    "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG", "PLUG"],
-    "nuclear energy": ["URA", "CCJ", "NXE", "LEU"],
-
-    // 🔹 Healthcare
-    "healthcare": ["XLV", "JNJ", "PFE", "UNH", "MRNA"],
-    "biotech": ["IBB", "BIIB", "VRTX", "REGN", "AMGN"],
-    "pharmaceuticals": ["PFE", "MRK", "LLY", "BMY", "GILD"],
-    "medical devices": ["ISRG", "SYK", "BSX", "ZBH"],
-
-    // 🔹 Industrials
-    "industrials": ["XLI", "BA", "GE", "CAT", "DE"],
-    "defense & aerospace": ["ITA", "LMT", "RTX", "NOC", "GD"],
-    "construction & engineering": ["FLR", "J", "PWR", "ACM"],
-
-    // 🔹 Consumer Goods
-    "consumer discretionary": ["XLY", "TSLA", "AMZN", "NKE", "SBUX"],
-    "consumer staples": ["XLP", "PG", "KO", "PEP", "WMT"],
-    "luxury goods": ["LVMUY", "RACE", "TIF", "CPRI"],
-
-    // 🔹 Retail & E-commerce
-    "e-commerce": ["AMZN", "BABA", "MELI", "JD"],
-    "big box retail": ["WMT", "TGT", "COST", "DG"],
-    "department stores": ["M", "KSS", "JWN"],
-
-    // 🔹 Transportation
-    "transportation": ["IYT", "UPS", "FDX", "CSX"],
-    "airlines": ["JETS", "DAL", "AAL", "LUV"],
-    "railroads": ["UNP", "CSX", "NSC"],
-
-    // 🔹 Commodities & Materials
-    "metals & mining": ["XME", "BHP", "RIO", "FCX", "NEM"],
-    "gold & silver": ["GLD", "SLV", "NEM", "WPM"],
-    "agriculture": ["MOO", "BG", "ADM", "MOS"],
-
-    // 🔹 Utilities
-    "utilities": ["XLU", "NEE", "DUK", "SO", "D"],
-    "water utilities": ["AWK", "WTRG", "XYL"],
-
-    // 🔹 Media & Entertainment
-    "media": ["DIS", "NFLX", "CMCSA", "PARA"],
-    "gaming & esports": ["ESPO", "ATVI", "TTWO", "EA"],
-
-    // 🔹 Automobiles & EVs
-    "automotive": ["TSLA", "F", "GM", "TM"],
-    "electric vehicles": ["TSLA", "NIO", "LI", "XPEV", "RIVN"],
-
-    // 🔹 Travel & Hospitality
-    "hotels & resorts": ["MAR", "HLT", "H", "WH"],
-    "cruise lines": ["CCL", "RCL", "NCLH"],
-
-    // 🔹 Aerospace & Space Tech
-    "space industry": ["ARKX", "SPCE", "MAXR", "LMT"],
-
-    // 🔹 Food & Beverage
-    "fast food": ["MCD", "YUM", "SBUX"],
-    "alcohol & beverage": ["STZ", "BUD", "SAM"],
-
-    // 🔹 Social Media & Communication
-    "social media": ["META", "TWTR", "SNAP", "PINS"],
-    "telecommunications": ["VZ", "T", "TMUS"],
-
-    // 🔹 Emerging Tech & Future Sectors
+    "artificial intelligence (AI)": ["AIQ", "NVDA", "MSFT", "GOOGL", "TSLA"],
     "quantum computing": ["IONQ", "QUBT", "NVDA"],
-    "web3 & decentralization": ["ETH-USD", "MATIC-USD", "UNI-USD"],
-    "clean energy": ["PBW", "TAN", "ICLN"],
-    "autonomous vehicles": ["TSLA", "GOOGL", "NVDA"],
+    "blockchain technology": ["BTC-USD", "ETH-USD", "COIN", "MSTR", "RIOT"],
+    "fintech": ["FINX", "PYPL", "SQ", "V", "MA", "ADYEY"],
+    "data centers": ["DLR", "EQIX", "CONE", "QTS"],
+    "consumer electronics": ["SONY", "AAPL", "MSI", "LOGI"],
+    "augmented reality (AR)": ["AAPL", "GOOGL", "MSFT", "META"],
+    "virtual reality (VR)": ["META", "GOOGL", "SONY", "NVDA"],
+    "IT services": ["IBM", "INFY", "ACN", "DXC"],
+    "internet of things (IoT)": ["TXN", "STM", "QCOM", "NXPI"],
+    "robotics": ["BOTZ", "ROBO", "IRBT", "ABB"],
+    "edge computing": ["FSLY", "NET", "AMD", "NVDA"],
+    "web3": ["ETH-USD", "MATIC-USD", "UNI-USD"],
+    "3D printing": ["SSYS", "DDD", "XONE", "MTLS"],
+    "gaming technology": ["ESPO", "ATVI", "TTWO", "EA"],
+    "telecommunications equipment": ["VZ", "T", "NOK", "ERIC"],
+
+    "pharmaceuticals": ["PFE", "MRK", "LLY", "BMY", "GILD"],
+    "biotech": ["IBB", "BIIB", "VRTX", "REGN", "AMGN"],
+    "gene editing (CRISPR)": ["CRSP", "EDIT", "NTLA"],
+    "medical devices": ["ISRG", "SYK", "BSX", "ZBH"],
+    "healthcare IT": ["TDOC", "CERN", "VEEV"],
+    "telemedicine": ["TDOC", "AMWL", "DOCS"],
+    "genomics": ["ARKG", "ILMN", "NVTA"],
+    "nutraceuticals": ["HLF", "NATR", "MED"],
+    "cannabis biotechnology": ["CGC", "TLRY", "CRON"],
+    "personalized medicine": ["ILMN", "RHHBY", "EXAS"],
+
+    "oil & gas exploration": ["XOP", "SLB", "HAL", "EOG"],
+    "oil refining & marketing": ["PSX", "VLO", "MPC"],
+    "natural gas": ["UNG", "CHK", "RRC"],
+    "offshore drilling": ["RIG", "DO", "NE"],
+    "nuclear energy": ["URA", "CCJ", "NXE", "LEU"],
+    "renewable energy": ["ICLN", "FSLR", "ENPH", "SEDG"],
+    "hydrogen fuel cells": ["PLUG", "BLDP", "BE"],
+    "solar power": ["TAN", "RUN", "FSLR"],
+    "wind energy": ["FAN", "NEE", "VWS"],
+    "geothermal energy": ["ORA", "BRK-A"],
+
+    "investment banks": ["GS", "JPM", "MS"],
+    "asset management": ["BLK", "TROW", "STT"],
+    "private equity": ["KKR", "BX", "CG"],
+    "venture capital": ["GSVC", "HTGC", "SVVC"],
+    "hedge funds": ["BRK.A", "CG", "PAG"],
+    "stock exchanges": ["CME", "ICE", "NDAQ"],
+    "payment processing": ["V", "MA", "SQ", "PYPL"],
+    "insurance": ["TRV", "AIG", "PGR"],
+    "mortgage lenders": ["RKT", "NRZ", "PFSI"],
+    "REITs": ["XLRE", "O", "SPG"],
+    "credit rating agencies": ["MCO", "SPGI"],
+    "cryptocurrencies": ["BTC-USD", "ETH-USD", "COIN"],
+
+    "gold mining": ["GDX", "NEM", "GOLD"],
+    "silver & precious metals": ["SLV", "PAAS", "AG"],
+    "rare earth metals": ["REMX", "MP", "LYC"],
+    "copper & industrial metals": ["COPX", "FCX", "SCCO"],
+    "diamond industry": ["TIF", "ZAL", "ALROSA"],
+    "forestry & timber": ["WY", "PCH", "RFP"],
+    "agriculture": ["ADM", "BG", "MOS"],
+    "fishing & aquaculture": ["BASA", "SALM", "MHG"],
+    "water treatment": ["AWK", "XYL", "WTRG"],
+    "fertilizers & chemicals": ["CF", "MOS", "NTR"],
+    "palm oil industry": ["KLK", "FGV", "SIME"],
+    "corn & soybean production": ["CORN", "SOYB", "BG"],
+    "nickel & cobalt": ["LIT", "ALB", "VALE"],
+    "cocoa & coffee production": ["NESTLE", "KDP", "SBUX"],
+    "natural gas liquids (NGLs)": ["ET", "WMB", "OKE"],
+    "pulp & paper industry": ["IP", "WRK", "PKG"],
+    "plastic recycling": ["WM", "RSG", "CLH"],
+    "carbon credit trading": ["XOM", "OXY", "BP"]
   };
 
   if (!sectorTickers[sector]) {
@@ -192,30 +196,66 @@ async function getStockData(sector: string) {
   let stockData: { [key: string]: any } = {};
 
   for (const ticker of tickers) {
-    try {
-      console.log(`📈 Fetching stock data for ${ticker}`);
-      const result = await yahooFinance.quoteSummary(ticker, { modules: ["price", "summaryDetail"] });
+    let attempts = 0;
+    const maxAttempts = 3;
+    let result;
 
-      if (!result || !result.price) {
-        console.error(`❌ No stock data found for ${ticker}`);
-        stockData[ticker] = "Unavailable (No Data)";
-        continue;
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`📈 Fetching stock data for ${ticker}, attempt ${attempts + 1}`);
+        result = await yahooFinance.quoteSummary(ticker, { modules: ["price", "summaryDetail"] });
+        if (!result || !result.price) {
+          throw new Error(`No stock data found for ${ticker}`);
+        }
+        break;
+      } catch (error) {
+        attempts++;
+        if (attempts === maxAttempts) {
+          console.error(`❌ Error fetching stock data for ${ticker} after ${maxAttempts} attempts:`, error);
+          stockData[ticker] = "Unavailable (Fetch Error)";
+          continue;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
       }
+    }
 
+    if (result) {
       stockData[ticker] = {
-        price: result.price.regularMarketPrice || "N/A",
-        change: result.price.regularMarketChangePercent || "N/A",
-        marketCap: result.price.marketCap || "N/A",
-        peRatio: result.summaryDetail?.trailingPE || "N/A",
-        dividendYield: result.summaryDetail?.dividendYield || "N/A",
+        price: roundToDecimal(result.price.regularMarketPrice),
+        change: roundToDecimal(result.price.regularMarketChangePercent),
+        marketCap: formatMarketCap(result.price.marketCap),
+        peRatio: roundToDecimal(result.summaryDetail?.trailingPE),
+        dividendYield: roundToDecimal(result.summaryDetail?.dividendYield),
       };
-    } catch (error) {
-      console.error(`❌ Error fetching stock data for ${ticker}:`, error);
-      stockData[ticker] = "Unavailable (Fetch Error)";
     }
   }
 
   return stockData;
+}
+
+// Helper function to round numbers to one decimal place
+function roundToDecimal(num: number | undefined): string | number {
+  if (num === undefined || num === null || isNaN(num)) return "N/A";
+  return Number(num.toFixed(1));
+}
+
+// Helper function to format market cap to billions, millions, or trillions
+function formatMarketCap(num: number | undefined): string {
+  if (num === undefined || num === null || isNaN(num)) return "N/A";
+
+  const trillion = 1000000000000; // 1 trillion
+  const billion = 1000000000;     // 1 billion
+  const million = 1000000;        // 1 million
+
+  if (num >= trillion) {
+    return `${Number((num / trillion).toFixed(1))}T`; // Trillions
+  } else if (num >= billion) {
+    return `${Number((num / billion).toFixed(1))}B`;  // Billions
+  } else if (num >= million) {
+    return `${Number((num / million).toFixed(1))}M`;  // Millions
+  } else {
+    return `${Number(num.toFixed(1))}`;              // Raw number if less than 1 million
+  }
 }
 
 // Fetch Macroeconomic Data from FRED API
@@ -229,10 +269,13 @@ async function getMacroData() {
 
   let macroData: { [key: string]: any } = {};
   for (const [key, series_id] of Object.entries(macroeconomicIndicators)) {
-    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${series_id}&api_key=${FRED_API_KEY}&file_type=json`;
     try {
       console.log(`📊 Fetching macro data: ${key}`);
-      const response = await fetch(url);
+      const response = await fetchWithTimeout(
+        `https://api.stlouisfed.org/fred/series/observations?series_id=${series_id}&api_key=${FRED_API_KEY}&file_type=json`,
+        {},
+        15000 // 15-second timeout
+      );
       const data = await response.json();
 
       if (!data || !data.observations || data.observations.length === 0) {

@@ -20,12 +20,12 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
 
   const sectors = [
     // Technology
-    "technology", "software", "semiconductors", "cybersecurity", "AI & machine learning",
-    "cloud computing", "fintech", "blockchain & crypto",
+    "technology", "software-as-a-service (SaaS)", "semiconductors", "cybersecurity", "artificial intelligence (AI)",
+    "cloud computing", "fintech", "blockchain technology",
     // Finance
-    "finance", "investment banking", "asset management", "insurance", "real estate & REITs",
+    "finance", "investment banks", "asset management", "insurance", "REITs",
     // Energy
-    "energy", "oil & gas", "renewable energy", "nuclear energy",
+    "energy", "oil & gas exploration", "renewable energy", "nuclear energy",
     // Healthcare
     "healthcare", "biotech", "pharmaceuticals", "medical devices",
     // Industrials
@@ -37,11 +37,11 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
     // Transportation
     "transportation", "airlines", "railroads",
     // Commodities & Materials
-    "metals & mining", "gold & silver", "agriculture",
+    "metals & mining", "gold mining", "agriculture",
     // Utilities
-    "utilities", "water utilities",
+    "utilities", "water treatment",
     // Media & Entertainment
-    "media", "gaming & esports",
+    "media", "gaming technology",
     // Automobiles & EVs
     "automotive", "electric vehicles",
     // Travel & Hospitality
@@ -53,7 +53,7 @@ export default function SectorAnalysis({ initialSector }: SectorAnalysisProps) {
     // Social Media & Communication
     "social media", "telecommunications",
     // Emerging Tech & Future Sectors
-    "quantum computing", "web3 & decentralization", "clean loading", "autonomous vehicles",
+    "quantum computing", "web3", "clean energy", "autonomous vehicles",
   ];
 
   useEffect(() => {
