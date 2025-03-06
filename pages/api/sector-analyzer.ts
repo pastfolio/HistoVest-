@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log("🤖 Generating AI-powered sector analysis...");
 
-    // Construct the system prompt using fetched data, adapted for paragraphs
+    // Construct the system prompt using fetched stock and macro data, focusing on qualitative insights and financial data
     const stockOverview = Object.entries(stockData)
       .map(
         ([ticker, data]) =>
@@ -59,15 +59,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .join(". ");
 
     const systemPrompt = `
-      Institutional-Grade Analysis of the ${sector} Sector (2025). 
-      You are an advanced financial analyst tasked with producing a highly detailed, institutional-grade analysis of the ${sector} sector for 2025, spanning at least 1000 words and written entirely in flowing paragraphs. The report should seamlessly integrate the following information into a cohesive, prose-based narrative without using bullet points or lists unless explicitly requested. 
-      Begin with a macroeconomic overview, where the current economic landscape shows GDP growth at ${macroData["GDP Growth"] || "N/A"}%, an inflation rate of ${macroData["Inflation Rate"] || "N/A"}%, interest rates at ${macroData["Interest Rates"] || "N/A"}%, and oil prices at $${macroData["Oil Prices"] || "N/A"} per barrel, exploring how these factors shape the ${sector} sector’s trajectory. 
-      Transition into a stock market overview, detailing the performance of key companies such as ${stockOverview}, and analyze what these metrics indicate about the sector’s financial health and investor confidence in 2025. 
-      Next, discuss investment trends and capital flows, noting that key investors in the ${sector} sector include major hedge funds, institutions, and venture capital firms, and elaborate on where capital is flowing in 2025 and which specific areas or companies within the sector are being targeted, providing a nuanced view of market priorities. 
-      Then, delve into historical market cycles and investment patterns, comparing past bull and bear markets in the ${sector} sector, weaving in detailed examples of crashes, recoveries, and major shifts to contextualize the current environment and forecast potential future movements. 
-      Follow this with an exploration of the competitive landscape and key players, offering a rich breakdown of top companies, their strategies, and emerging challengers, illustrating how these dynamics influence the sector’s evolution. 
-      Conclude with future projections and industry risks, assessing what challenges the ${sector} sector might face between 2025 and 2030, and identifying major technological disruptions or policy changes that could impact growth, ensuring a forward-looking perspective grounded in current data. 
-      Ensure this response is highly detailed, written in a professional, institutional tone suitable for a sophisticated financial audience, and maximizes the 4096-token limit to deliver an expansive, uninterrupted narrative.
+      Comprehensive Sector Analysis of the ${sector} Sector (2025). 
+      You are an advanced industry analyst tasked with producing a concise, insightful analysis of the ${sector} sector for 2025, spanning 500–700 words and written in a professional, institutional tone suitable for sophisticated investors and industry professionals. The report should provide detailed, qualitative insights and financial data without any actionable investment guidance (e.g., buy/sell/hold, ROI estimates), focusing on the following areas in a structured narrative with numbered lists for key points where appropriate:
+
+      1. **Macroeconomic Overview**: Briefly summarize the current economic landscape, including GDP growth at ${macroData["GDP Growth"] || "N/A"}%, inflation rate at ${macroData["Inflation Rate"] || "N/A"}%, interest rates at ${macroData["Interest Rates"] || "N/A"}%, and oil prices at $${macroData["Oil Prices"] || "N/A"} per barrel (if relevant to the sector). Analyze how these factors impact the ${sector} sector’s short-term and long-term performance, focusing on risks and opportunities for the industry.
+
+      2. **Stock Market Performance**: Present the financial performance of 3–5 key companies in the ${sector} sector, as outlined in ${stockOverview}. Include their current prices, market caps, P/E ratios, and dividend yields, and discuss what these metrics indicate about the sector’s financial health and market position, without providing investment recommendations.
+
+      3. **Risks**: Identify the top 3–5 risks facing the ${sector} sector between 2025 and 2030, such as regulatory changes, technological disruptions, market volatility, or environmental concerns. Analyze how these risks could impact the sector’s operations and growth, considering the financial and macroeconomic data provided.
+
+      4. **Opportunities**: Highlight 3–5 key opportunities for growth and innovation in the ${sector} sector for 2025, such as technological advancements, market expansion, or shifts in consumer demand. Explain how these opportunities could drive the sector’s future development, supported by the financial and macroeconomic context.
+
+      5. **Historical Similarities**: Draw 2–3 parallels between the current state of the ${sector} sector in 2025 and historical market cycles, including past bull and bear markets, recoveries, or disruptions. Provide examples to contextualize the sector’s trajectory and potential future movements, using financial and macroeconomic data where relevant.
+
+      6. **Bear and Bull Theses**: Present a balanced view of the ${sector} sector’s potential, outlining a bear thesis (reasons for pessimism, challenges, or decline) and a bull thesis (reasons for optimism, growth drivers, or resilience), supported by qualitative evidence from current trends, financial data, and historical context.
+
+      7. **Unique Industry Factors**: Identify 2–3 unique factors or characteristics that distinguish the ${sector} sector from others, such as regulatory environments, technological dependencies, or environmental impacts, and analyze their influence on the sector’s dynamics, considering the financial and macroeconomic data.
+
+      8. **Competitive Advantages**: Describe the competitive advantages of 2–3 leading companies or players in the ${sector} sector, focusing on their strategies, innovations, or market positions, and how these advantages shape the sector’s competitive landscape, using financial data where relevant.
+
+      9. **Growth Potential**: Assess the sector’s growth potential between 2025 and 2030, identifying key drivers (e.g., innovation, demand, policy changes) and potential barriers, providing a forward-looking perspective grounded in current trends, financial data, and historical patterns.
+
+      Ensure the response is concise, data-driven (using stock and macro data where relevant), and laser-focused on delivering high-value, qualitative insights and financial metrics for industry professionals. Use numbered lists for clarity and readability, but maintain a professional, institutional tone. Avoid any financial advice or investment recommendations, prioritizing descriptive, sector-specific analysis to justify a $10/month subscription fee.
     `;
 
     const stream = await anthropic.messages.create({
@@ -124,7 +137,7 @@ async function getStockData(sector: string) {
     "augmented reality (AR)": ["AAPL", "GOOGL", "MSFT", "META"],
     "virtual reality (VR)": ["META", "GOOGL", "SONY", "NVDA"],
     "IT services": ["IBM", "INFY", "ACN", "DXC"],
-    "internet of things (IoT)": ["TXN", "STM", "QCOM", "NXPI"],
+    "internet of things (IoT)": ["TXN", "STM", "QCM", "NXPI"],
     "robotics": ["BOTZ", "ROBO", "IRBT", "ABB"],
     "edge computing": ["FSLY", "NET", "AMD", "NVDA"],
     "web3": ["ETH-USD", "MATIC-USD", "UNI-USD"],
@@ -235,7 +248,7 @@ async function getStockData(sector: string) {
         console.warn(`⚠ Estimated market cap for ${ticker} (CLOU) to 0.50B`);
       }
 
-      // Handle and correct dividend yield with improved accuracy for cloud computing
+      // Handle and correct dividend yield with improved accuracy
       if (dividendYield === undefined || dividendYield === null || isNaN(dividendYield)) {
         const annualDividend = result.summaryDetail?.trailingAnnualDividendRate;
         const price = result.price.regularMarketPrice;
@@ -255,6 +268,10 @@ async function getStockData(sector: string) {
       } else if (ticker === "CLOU" || ticker === "AMZN" || ticker === "GOOGL" || ticker === "SNOW") { // No dividends
         dividendYield = 0; // Ensure N/A for non-dividend-paying stocks
         console.warn(`⚠ Set dividend yield for ${ticker} to 0 (N/A) as it doesn’t pay dividends`);
+      } else if (ticker === "NVDA" && (dividendYield === 0 || dividendYield === null)) { // Special case for NVDA
+        // Override missing dividend yield for NVDA (real-world ~0.04 as of March 4, 2025)
+        dividendYield = 0.04; // Hardcoded for accuracy, but verify regularly
+        console.warn(`⚠ Corrected missing dividend yield for ${ticker} to 0.04`);
       }
 
       // Handle missing P/E ratio
